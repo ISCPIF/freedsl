@@ -1,0 +1,11 @@
+target/
+target/*
+.idea*/*
+build.xml
+nbactions.xml
+/nbproject/
+pom.xml
+*.iml
+*.sublime*
+*.DS_Store
+tags
