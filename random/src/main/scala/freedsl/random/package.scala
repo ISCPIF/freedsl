@@ -18,7 +18,7 @@
 package freedsl
 
 import cats._
-import cats.implicits._
+import cats.free._
 import freek._
 
 package object random {
@@ -36,7 +36,6 @@ package object random {
     type PRG = DSL :|: NilDSL
     val PRG = DSL.Make[PRG]
 
-
     def interpreter(random: util.Random) = new (DSL ~> Id) {
       def apply[A](a: DSL[A]) = a match {
         case NextDouble => random.nextDouble
@@ -45,6 +44,14 @@ package object random {
     }
 
     def interpreter(seed: Long): DSL ~> Id = interpreter(new util.Random(seed))
+
+    implicit def impl[DSL0 <: freek.DSL](implicit subDSL: SubDSL1[RNG.DSL, DSL0]) = new RNG[Free[subDSL.Cop, ?]] {
+      def nextDouble = RNG.NextDouble.freek[DSL0]
+      def nextInt(n: Int) = RNG.NextInt(n).freek[DSL0]
+    }
   }
+
+
+
 
 }

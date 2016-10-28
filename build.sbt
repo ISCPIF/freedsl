@@ -2,7 +2,6 @@
 
 organization := "fr.iscpif"
 name := "freedsl"
-publishArtifact := false
 
 lazy val root = (project in file(".")).
   aggregate(
@@ -17,7 +16,7 @@ def settings = Seq (
   organization := "fr.iscpif.freedsl",
   crossScalaVersions := Seq("2.11.8"),
   libraryDependencies += "com.projectseptember" %% "freek" % "0.6.0",
-  libraryDependencies += "org.spire-math" %% "kind-projector" % "0.7.1",
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.2"),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
