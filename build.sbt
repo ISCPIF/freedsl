@@ -1,14 +1,8 @@
 
-
-organization := "fr.iscpif"
 name := "freedsl"
 
-lazy val root = (project in file(".")).
-  aggregate(
-    random
-  ) settings(
-    publishArtifact := false
-  )
+lazy val root = Project(id = "freedsl", base = file(".")).settings(settings: _*).dependsOn(random, log) settings (
+  organization := "fr.iscpif")
 
 def settings = Seq (
   scalaVersion := "2.11.8",
@@ -38,8 +32,8 @@ def settings = Seq (
   )
 )
 
-lazy val random = Project(id = "random", base = file("random"), settings = settings)
-lazy val log = Project(id = "log", base = file("log"), settings = settings)
+lazy val random = Project(id = "random", base = file("random")).settings(settings: _*)
+lazy val log = Project(id = "log", base = file("log")).settings(settings: _*)
 
 
 

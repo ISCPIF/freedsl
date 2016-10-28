@@ -1,5 +1,5 @@
 /**
-  * Created by Romain Reuillon on 27/10/16.
+  * Created by Romain Reuillon on 28/10/16.
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU Affero General Public License as published by
@@ -15,6 +15,6 @@
   * along with this program.  If not, see <http://www.gnu.org/licenses/>.
   *
   */
-package freedsl
 
-package object random extends Imports
+
+package object freedsl extends random.Imports with log.Imports
