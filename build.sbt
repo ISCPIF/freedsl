@@ -38,6 +38,8 @@ def settings = Seq (
   )
 )
 
-lazy val random  = Project(id = "random", base = file("random"), settings = settings)
+lazy val random = Project(id = "random", base = file("random"), settings = settings)
+lazy val log = Project(id = "log", base = file("log"), settings = settings)
+
 
 

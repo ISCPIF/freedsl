@@ -1,5 +1,5 @@
 /**
-  * Created by Romain Reuillon on 27/10/16.
+  * Created by Romain Reuillon on 28/10/16.
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU Affero General Public License as published by
@@ -18,37 +18,31 @@
 package freedsl
 
 import cats._
-import cats.free._
 import freek._
 
-package object random {
+package object log {
 
-  trait RNG[M[_]] {
-    def nextDouble: M[Double]
-    def nextInt(n: Int): M[Int]
-  }
-
-  object RNG {
+  object Log {
     sealed trait DSL[A]
-    final case object NextDouble extends DSL[Double]
-    final case class NextInt(n: Int) extends DSL[Int]
+    final case class Print(s: String) extends DSL[Unit]
 
     type PRG = DSL :|: NilDSL
     val PRG = DSL.Make[PRG]
 
-    def interpreter(random: util.Random) = new (DSL ~> Id) {
+    def interpreter = new (DSL ~> Id) {
       def apply[A](a: DSL[A]) = a match {
-        case NextDouble => random.nextDouble
-        case NextInt(n) => random.nextInt(n)
+        case Print(s) => println(s)
       }
     }
 
-    def interpreter(seed: Long): DSL ~> Id = interpreter(new util.Random(seed))
-
-    implicit def impl[DSL0 <: freek.DSL](implicit subDSL: SubDSL1[DSL, DSL0]) = new RNG[Free[subDSL.Cop, ?]] {
-      def nextDouble = RNG.NextDouble.freek[DSL0]
-      def nextInt(n: Int) = RNG.NextInt(n).freek[DSL0]
+    implicit def impl[DSL0 <: freek.DSL](implicit subDSL: SubDSL1[DSL, DSL0]) = new Log[cats.free.Free[subDSL.Cop, ?]] {
+       def print(s: String) = Log.Print(s).freek[PRG]
     }
+  }
+
+
+  trait Log[M[_]] {
+    def print(s: String): M[Unit]
   }
 
 }
