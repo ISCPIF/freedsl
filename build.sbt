@@ -1,8 +1,7 @@
 
 name := "freedsl"
 
-lazy val root = Project(id = "freedsl", base = file(".")).settings(settings: _*).dependsOn(random, log) settings (
-  organization := "fr.iscpif")
+lazy val root = Project(id = "all", base = file(".")).settings(settings: _*).dependsOn(random, log)
 
 def settings = Seq (
   scalaVersion := "2.11.8",
