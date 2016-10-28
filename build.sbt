@@ -1,7 +1,9 @@
 
-name := "freedsl"
+def modules = Seq(random, log)
 
-lazy val root = Project(id = "all", base = file(".")).settings(settings: _*).dependsOn(random, log)
+lazy val root =
+  Project(id = "all", base = file(".")).settings(settings: _*).
+    aggregate(modules.map(_.project): _*).dependsOn(modules.map(p => p: ClasspathDep[ProjectReference]): _*)
 
 def settings = Seq (
   scalaVersion := "2.11.8",

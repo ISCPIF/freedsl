@@ -15,34 +15,9 @@
   * along with this program.  If not, see <http://www.gnu.org/licenses/>.
   *
   */
-package freedsl.log
+package freedsl.random
 
-import cats._
-import cats.free.Free
-import freek._
-
-trait Imports {
-
-  object Log {
-    sealed trait DSL[A]
-    final case class Print(s: String) extends DSL[Unit]
-
-    type PRG = DSL :|: NilDSL
-    val PRG = freek.DSL.Make[PRG]
-
-    def interpreter = new (DSL ~> Id) {
-      def apply[A](a: DSL[A]) = a match {
-        case Print(s) => println(s)
-      }
-    }
-
-    implicit def impl[DSL0 <: freek.DSL](implicit subDSL: SubDSL1[DSL, PRG]) = new Log[Free[subDSL.Cop, ?]] {
-      def print(s: String) = Log.Print(s).freek[PRG](subDSL)
-    }
-  }
-
-  trait Log[M[_]] {
-    def print(s: String): M[Unit]
-  }
-
+trait Random[M[_]] {
+  def nextDouble: M[Double]
+  def nextInt(n: Int): M[Int]
 }

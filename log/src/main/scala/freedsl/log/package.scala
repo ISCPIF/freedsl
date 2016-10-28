@@ -17,4 +17,24 @@
   */
 package freedsl
 
-package object log extends Imports
+import freek._
+import cats._
+import cats.free._
+
+package object log {
+  sealed trait Instruction[A]
+  final case class Print(s: String) extends Instruction[Unit]
+
+  type DSL = Instruction :|: NilDSL
+  val DSL = freek.DSL.Make[DSL]
+
+  def interpreter = new (Instruction ~> Id) {
+    def apply[A](a: Instruction[A]) = a match {
+      case Print(s) => println(s)
+    }
+  }
+
+  def impl[DSL0 <: freek.DSL](implicit subDSL: SubDSL1[Instruction, DSL0]) = new Log[Free[subDSL.Cop, ?]] {
+    def print(s: String) = Print(s).freek[DSL0]
+  }
+}

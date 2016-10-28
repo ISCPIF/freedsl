@@ -15,6 +15,9 @@
   * along with this program.  If not, see <http://www.gnu.org/licenses/>.
   *
   */
+package freedsl.log
 
 
-package object freedsl extends random.Imports with log.Imports
+trait Log[M[_]] {
+  def print(s: String): M[Unit]
+}
