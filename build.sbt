@@ -1,5 +1,5 @@
 
-def modules = Seq(random, log)
+def modules = Seq(generate, random, log)
 
 lazy val root =
   Project(id = "all", base = file(".")).settings(settings: _*).
