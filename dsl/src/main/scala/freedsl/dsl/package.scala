@@ -45,13 +45,19 @@ package object dsl {
 
       val caseClasses = funcs.map(c => generateCaseClass(c))
 
-      def generateImpl(func: DefDef) = {
-        val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-        q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0]"
-      }
+      val generateFreekImpl =
+        (func: DefDef) => {
+          val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
+          q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0]"
+        }
 
-      val implDefs = funcs.map(c => generateImpl(c))
+      val generateFreekoImpl =
+        (func: DefDef) => {
+          val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
+          q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freeko[DSL0, O0]"
+        }
 
+      def implDefs(transform: DefDef => Tree) = funcs.map(transform)
 
       val traitName = TypeName(c.freshName("Instruction"))
 
@@ -72,7 +78,7 @@ package object dsl {
 
            def impl[DSL0 <: freek.DSL](implicit subDSL: freek.SubDSL1[${traitName}, DSL0]) = new ${clazz.name}[({type l[A] = cats.free.Free[subDSL.Cop, A]})#l] {
              import freek._
-             ..${implDefs}
+             ..${implDefs(generateFreekImpl)}
            }
 
            ..$body
@@ -85,6 +91,10 @@ package object dsl {
 
     }
 
+//    def implo[DSL0 <: freek.DSL, O0 <: freek.Onion: freek.Pointer: freek.Mapper: freek.Binder: freek.Traverser](implicit subDSL: freek.SubDSL1[${traitName}, DSL0]) = new ${clazz.name}[({type l[A] = freek.OnionT[cats.free.Free, subDSL.Cop, O0, A]})#l] {
+//      import freek._
+//      ..${implDefs(generateFreekoImpl)}
+//    }
 
     def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = generateCompanion(typeClass, companion.getOrElse(q"object ${typeClass.name.toTermName} {}"))
 

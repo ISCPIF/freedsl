@@ -10,8 +10,10 @@ def settings = Seq (
   scalaOrganization := "org.typelevel",
   organization := "fr.iscpif.freedsl",
   crossScalaVersions := Seq("2.11.8"),
-  libraryDependencies += "com.projectseptember" %% "freek" % "0.6.0",
+  resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven"),
+  libraryDependencies += "com.projectseptember" %% "freek" % "0.6.2",
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+  addCompilerPlugin("com.milessabin" % "si2712fix-plugin" % "1.2.0" cross CrossVersion.full),
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.2"),
   publishTo := {
