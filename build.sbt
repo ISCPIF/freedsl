@@ -11,6 +11,8 @@ def settings = Seq (
   organization := "fr.iscpif.freedsl",
   crossScalaVersions := Seq("2.11.8"),
   libraryDependencies += "com.projectseptember" %% "freek" % "0.6.0",
+  libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.2"),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
@@ -33,8 +35,9 @@ def settings = Seq (
   )
 )
 
-lazy val random = Project(id = "random", base = file("random")).settings(settings: _*)
-lazy val log = Project(id = "log", base = file("log")).settings(settings: _*)
+lazy val random = Project(id = "random", base = file("random")).settings(settings: _*) dependsOn(generate)
+lazy val log = Project(id = "log", base = file("log")).settings(settings: _*) dependsOn(generate)
+lazy val generate = Project(id = "generate", base = file("generate")).settings(settings: _*)
 
 
 

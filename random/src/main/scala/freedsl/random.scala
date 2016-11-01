@@ -17,31 +17,23 @@
   */
 package freedsl
 
-import freek._
+import freedsl.generate._
+import cats._
 
-package object random {
+object random {
 
-  import cats._
-  import free._
-
-  sealed trait Instruction[A]
-  final case object NextDouble extends Instruction[Double]
-  final case class NextInt(n: Int) extends Instruction[Int]
-
-  type DSL = Instruction :|: NilDSL
-  val DSL = freek.DSL.Make[DSL]
-
-  def interpreter(random: util.Random) = new (Instruction ~> Id) {
-    def apply[A](a: Instruction[A]) = a match {
-      case NextDouble => random.nextDouble
+  def interpreter(random: util.Random) = new Interpreter[Id] {
+    def interpret[A] = {
+      case NextDouble() => random.nextDouble
       case NextInt(n) => random.nextInt(n)
     }
   }
 
-  def interpreter(seed: Long): Instruction ~> Id = interpreter(new util.Random(seed))
+  def interpreter(seed: Long): Interpreter[Id] = interpreter(new util.Random(seed))
 
-  def impl[DSL0 <: freek.DSL](implicit subDSL: freek.SubDSL1[Instruction, DSL0]) = new Random[Free[subDSL.Cop, ?]] {
-    def nextDouble = NextDouble.freek[DSL0]
-    def nextInt(n: Int) = NextInt(n).freek[DSL0]
-  }
+}
+
+@dsl trait random[M[_]] {
+  def nextDouble: M[Double]
+  def nextInt(n: Int): M[Int]
 }

@@ -15,9 +15,21 @@
   * along with this program.  If not, see <http://www.gnu.org/licenses/>.
   *
   */
-package freedsl.random
+package freedsl
 
-trait Random[M[_]] {
-  def nextDouble: M[Double]
-  def nextInt(n: Int): M[Int]
+import cats._
+import freedsl.generate._
+
+object log {
+
+ def interpreter = new Interpreter[Id] {
+   def interpret[_] = {
+     case Print(s) => println(s)
+   }
+ }
+
+}
+
+@dsl trait log[M[_]] {
+  def print(s: String): M[Unit]
 }

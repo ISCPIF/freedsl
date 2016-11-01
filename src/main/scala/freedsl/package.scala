@@ -20,7 +20,7 @@ import cats.Monad
 import cats.implicits._
 
 package object freedsl {
-  def modifier[F[_]: Monad, T](get: F[T], set: T => F[Unit]) = new {
+  def modifier[F[_] : Monad, T](get: F[T], set: T => F[Unit]) = new {
     def modify(f: T => T) =
       for {
         v <- get
@@ -30,5 +30,4 @@ package object freedsl {
 
     def apply(f: T => T) = modify(f)
   }
-
 }
