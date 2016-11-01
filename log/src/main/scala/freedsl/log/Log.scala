@@ -15,21 +15,21 @@
   * along with this program.  If not, see <http://www.gnu.org/licenses/>.
   *
   */
-package freedsl
+package freedsl.log
 
 import cats._
-import freedsl.generate._
+import freedsl.dsl._
 
-object log {
+object Log {
 
  def interpreter = new Interpreter[Id] {
    def interpret[_] = {
-     case Print(s) => println(s)
+     case print(s) => println(s)
    }
  }
 
 }
 
-@dsl trait log[M[_]] {
+@dsl trait Log[M[_]] {
   def print(s: String): M[Unit]
 }

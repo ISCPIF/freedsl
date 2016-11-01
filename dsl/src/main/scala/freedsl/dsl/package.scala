@@ -21,20 +21,20 @@ import scala.annotation.StaticAnnotation
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
-package object generate {
+package object dsl {
 
   def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
     import c.universe._
 
     def generateCompanion(clazz: ClassDef, comp: Tree) = {
+
+      val q"$mods object $name extends ..$bases { ..$body }" = comp
+
       val funcs = clazz.impl.children.collect {
         case m: DefDef if !m.mods.hasFlag(Flag.PRIVATE) && !m.mods.hasFlag(Flag.PROTECTED) => m
       }
 
-      def opTerm(func: DefDef) = {
-        val keyName = func.name.toString.take(1).toUpperCase() + func.name.toString.drop(1)
-        keyName
-      }
+      def opTerm(func: DefDef) = func.name.toString
 
       def generateCaseClass(func: DefDef) = {
         val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
@@ -42,16 +42,16 @@ package object generate {
         q"case class ${TypeName(opTerm(func))}(..${params}) extends Instruction[${func.tpt.children.drop(1).head}]"
       }
 
+
       val caseClasses = funcs.map(c => generateCaseClass(c))
 
       def generateImpl(func: DefDef) = {
         val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-        q"def ${func.name}(..${params}) = ${TermName(opTerm(func))}(..${params}).freek[DSL0]"
+        q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0]"
       }
 
       val implDefs = funcs.map(c => generateImpl(c))
 
-      val q"$mods object $name extends ..$bases { ..$body }" = comp
 
       val traitName = TypeName(c.freshName("Instruction"))
 

@@ -15,17 +15,17 @@
   * along with this program.  If not, see <http://www.gnu.org/licenses/>.
   *
   */
-package freedsl
+package freedsl.random
 
-import freedsl.generate._
 import cats._
+import freedsl.dsl._
 
-object random {
+object Random {
 
   def interpreter(random: util.Random) = new Interpreter[Id] {
     def interpret[A] = {
-      case NextDouble() => random.nextDouble
-      case NextInt(n) => random.nextInt(n)
+      case nextDouble() => random.nextDouble
+      case nextInt(n) => random.nextInt(n)
     }
   }
 
@@ -33,7 +33,7 @@ object random {
 
 }
 
-@dsl trait random[M[_]] {
+@dsl trait Random[M[_]] {
   def nextDouble: M[Double]
   def nextInt(n: Int): M[Int]
 }
