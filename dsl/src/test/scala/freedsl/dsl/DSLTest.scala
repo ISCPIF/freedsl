@@ -18,38 +18,49 @@
 package freedsl.dsl
 
 import cats._
-import cats.data._
 import freek._
 import cats.implicits._
 
+object PureFreek {
+  sealed trait Instruction[T]
+  final case class Get() extends Instruction[Set[Int]]
 
-object SimpleDSL {
-  object DSLTestM {
-    def interpreter = new Interpreter[Id] {
-      def interpret[_] = {
-        case get() => 0
-        case getH() => Set(0)
-      }
-    }
-  }
-
-  @dsl trait DSLTestM[M[_]] {
-    def get: M[Int]
-    def getH: M[Set[Int]]
-  }
-
-  type DSL = DSLTestM.DSL
-  val DSL = freek.DSL.Make[DSL]
-
-  def impl =  DSLTestM.impl[DSL]
-
-
+  type DSL = Instruction :|: NilDSL
   type O = Option :&: Bulb
-  DSLTestM.get().freek[DSL].onionT[O]
-  //DSLTestM.getH().freek[DSL].onionT[O] // Not working yet
+
+  Get().freek[DSL].onion[O]
 }
 
-object DSLWithOnionTest {
+
+object SimpleDSL {
+//  object DSLTestM {
+//    def interpreter = new Interpreter[Id] {
+//      def interpret[_] = {
+//        case get() => 0
+//       // case getH() => Set(0)
+//      }
+//    }
+//  }
+
+    sealed trait Instruction[T]
+    final case class Bla() extends Instruction[Int]
+
+//  trait DSLTestM[M[_]] {
+//    def get: M[Int]
+//   // def getH: M[Set[Int]]
+//  }
+
+  type DSL = Instruction :|: NilDSL
+  type O = Option :&: Bulb
+
+  Bla().freek[DSL].onion[O]
+
+  //DSLTestM.get().freek[DSL].onion[O]
+ // DSLTestM.getH().freek[DSL].onion[O]
+
+}
+
+//object DSLWithOnionTest {
 
 //  object DSLTestM {
 //
@@ -79,5 +90,4 @@ object DSLWithOnionTest {
 //    def get = ToFreek1(DSLTestM.get()).freek[DSL]
 //  }
 
-
-}
+//}

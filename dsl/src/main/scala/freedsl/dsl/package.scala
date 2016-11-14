@@ -28,6 +28,7 @@ package object dsl {
 
     def generateCompanion(clazz: ClassDef, comp: Tree) = {
 
+      val instructionName = TypeName(c.freshName("Instruction"))
       val q"$mods object $name extends ..$bases { ..$body }" = comp
 
       val funcs = clazz.impl.children.collect {
@@ -39,7 +40,7 @@ package object dsl {
       def generateCaseClass(func: DefDef) = {
         val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
         //FIXME Issue proper error
-        q"case class ${TypeName(opTerm(func))}(..${params}) extends Instruction[${func.tpt.children.drop(1).head}]"
+        q"case class ${TypeName(opTerm(func))}(..${params}) extends ${instructionName}[${func.tpt.children.drop(1).head}]"
       }
 
 
@@ -54,29 +55,28 @@ package object dsl {
       val generateFreekoImpl =
         (func: DefDef) => {
           val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-          q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freeko[DSL0, O0]"
+          q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0].onion[O0]"
         }
 
       def implDefs(transform: DefDef => Tree) = funcs.map(transform)
 
-      val traitName = TypeName(c.freshName("Instruction"))
 
       val modifiedCompanion = q"""
         $mods object $name extends ..$bases {
-           sealed trait ${traitName}[T]
+           sealed trait ${instructionName}[T]
            ..${caseClasses}
 
-           type DSL = freek.:|:[${traitName}, freek.NilDSL]
+           type DSL = freek.:|:[${instructionName}, freek.NilDSL]
            val DSL = freek.DSL.Make[DSL]
 
-           type Instruction[T] = ${traitName}[T]
+           type Instruction[T] = ${instructionName}[T]
 
-           trait Interpreter[T[_]] extends cats.~>[${traitName}, T] {
-             def interpret[A]: (${traitName}[A] => T[A])
-             def apply[A](f: ${traitName}[A]) = interpret[A](f)
+           trait Interpreter[T[_]] extends cats.~>[${instructionName}, T] {
+             def interpret[A]: (${instructionName}[A] => T[A])
+             def apply[A](f: ${instructionName}[A]) = interpret[A](f)
            }
 
-           def impl[DSL0 <: freek.DSL](implicit subDSL: freek.SubDSL1[${traitName}, DSL0]) = new ${clazz.name}[({type l[A] = cats.free.Free[subDSL.Cop, A]})#l] {
+           def impl[DSL0 <: freek.DSL](implicit subDSL: freek.SubDSL1[${instructionName}, DSL0]) = new ${clazz.name}[({type l[A] = cats.free.Free[subDSL.Cop, A]})#l] {
              import freek._
              ..${implDefs(generateFreekImpl)}
            }
@@ -88,7 +88,6 @@ package object dsl {
       c.Expr(q"""
         $clazz
         $modifiedCompanion""")
-
     }
 
 //    def implo[DSL0 <: freek.DSL, O0 <: freek.Onion: freek.Pointer: freek.Mapper: freek.Binder: freek.Traverser](implicit subDSL: freek.SubDSL1[${traitName}, DSL0]) = new ${clazz.name}[({type l[A] = freek.OnionT[cats.free.Free, subDSL.Cop, O0, A]})#l] {
@@ -113,5 +112,7 @@ package object dsl {
   class dsl extends StaticAnnotation {
     def macroTransform(annottees: Any*): Any = macro dsl_impl
   }
+
+
 
 }

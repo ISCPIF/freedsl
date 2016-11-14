@@ -11,7 +11,7 @@ def settings = Seq (
   organization := "fr.iscpif.freedsl",
   crossScalaVersions := Seq("2.11.8"),
   resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven"),
-  libraryDependencies += "com.projectseptember" %% "freek" % "0.6.2",
+  libraryDependencies += "com.projectseptember" %% "freek" % "0.6.5",
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
   addCompilerPlugin("com.milessabin" % "si2712fix-plugin" % "1.2.0" cross CrossVersion.full),
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
