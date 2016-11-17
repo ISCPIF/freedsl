@@ -6,16 +6,16 @@ lazy val root =
     aggregate(modules.map(_.project): _*).dependsOn(modules.map(p => p: ClasspathDep[ProjectReference]): _*)
 
 def settings = Seq (
-  scalaVersion := "2.11.8",
+  scalaVersion := "2.12.0",
+  crossScalaVersions := Seq("2.11.8", "2.12.0"),
   scalaOrganization := "org.typelevel",
+  scalacOptions += "-Ypartial-unification",
   organization := "fr.iscpif.freedsl",
-  crossScalaVersions := Seq("2.11.8"),
   resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven"),
   libraryDependencies += "com.projectseptember" %% "freek" % "0.6.5",
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-  addCompilerPlugin("com.milessabin" % "si2712fix-plugin" % "1.2.0" cross CrossVersion.full),
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.2"),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
