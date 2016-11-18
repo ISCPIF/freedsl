@@ -18,42 +18,93 @@
 package freedsl.dsl
 
 import cats._
+import cats.free.Free
 import freek._
 import cats.implicits._
 
-object PureFreek {
-  sealed trait Instruction[T]
-  final case class Get() extends Instruction[Set[Int]]
+object PureFreek extends App {
 
-  type DSL = Instruction :|: NilDSL
-  type O = Option :&: Bulb
-
-  Get().freek[DSL].onion[O]
-}
-
-
-object SimpleDSL {
-//  object DSLTestM {
-//    def interpreter = new Interpreter[Id] {
-//      def interpret[_] = {
-//        case get() => 0
-//       // case getH() => Set(0)
-//      }
-//    }
-//  }
-
+  object PureFreek {
     sealed trait Instruction[T]
-    final case class Bla() extends Instruction[Int]
+    final case class Get() extends Instruction[Int]
+    final case class GetSet() extends Instruction[Set[Int]]
+    final case class GetMap() extends Instruction[Map[Int, Int]]
 
-//  trait DSLTestM[M[_]] {
-//    def get: M[Int]
-//   // def getH: M[Set[Int]]
-//  }
+    type DSL = Instruction :|: NilDSL
+    type O = Option :&: Bulb
 
-  type DSL = Instruction :|: NilDSL
+    Get().freek[DSL].onionT[O]
+    GetSet().freek[DSL].onion[O]
+    GetMap().freek[DSL].onion[O]
+
+    def interpreter = new (Instruction ~> Option) {
+      def apply[A](a: Instruction[A]) = a match {
+        case Get() => Some(1)
+        case GetSet() => Some(Set(1))
+        case GetMap() => Some(Map(1 -> 1))
+      }
+    }
+
+  }
+
+  object DSLTest {
+
+    object DSLTestM {
+      def interpreter = new Interpreter[Id] {
+        def interpret[_] = {
+          case get() => 1
+          case getSet() => Set(1)
+        }
+      }
+
+      def interpreterOption = new Interpreter[Option] {
+        def interpret[_] = {
+          case get() => Some(1)
+          case getSet() => Some(Set(1))
+        }
+      }
+    }
+
+    @dsl trait DSLTestM[M[_]] {
+      def get: M[Int]
+      def getSet: M[Set[Int]]
+    }
+
+  }
+
+  import DSLTest._
+
+  type DSL = DSLTestM.DSL
+  val DSL = freek.DSL.Make[DSL]
+  type Context[T] = Free[DSL.Cop, T]
+
+  def prg[M[_]: Monad](dSLTestM: DSLTestM[M]) =
+    for {
+      i <- dSLTestM.get
+      j <- dSLTestM.getSet
+      k <- dSLTestM.get
+    } yield (i, j)
+
   type O = Option :&: Bulb
+  type ContextO[T] = freek.OnionT[cats.free.Free, DSL.Cop, O, T] //Free[DSL.Cop, O#Layers[T]]
 
-  Bla().freek[DSL].onion[O]
+  println(prg[Context](DSLTestM.impl[DSL]).interpret(DSLTestM.interpreter))
+  println(prg[ContextO](DSLTestM.implo[DSL, O]).value.interpret(DSLTestM.interpreterOption))
+
+
+
+//
+//    sealed trait Instruction[T]
+//
+////  trait DSLTestM[M[_]] {
+////    def get: M[Int]
+////   // def getH: M[Set[Int]]
+////  }
+//
+//  type DSL = Instruction :|: NilDSL
+//  type O = Option :&: Bulb
+//
+//  Bla().freek[DSL].onionT[O]
 
   //DSLTestM.get().freek[DSL].onion[O]
  // DSLTestM.getH().freek[DSL].onion[O]

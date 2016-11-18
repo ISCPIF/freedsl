@@ -55,7 +55,10 @@ package object dsl {
       val generateFreekoImpl =
         (func: DefDef) => {
           val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-          q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0].onion[O0]"
+          val returnType = func.tpt.children.drop(1).head
+
+          if(returnType.children.isEmpty) q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0].onionT[O0]"
+          else q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0].onion[O0]"
         }
 
       def implDefs(transform: DefDef => Tree) = funcs.map(transform)
@@ -81,6 +84,11 @@ package object dsl {
              ..${implDefs(generateFreekImpl)}
            }
 
+           def implo[DSL0 <: freek.DSL, O0 <: freek.Onion: freek.Pointer: freek.Mapper: freek.Binder: freek.Traverser](implicit subDSL: freek.SubDSL1[${instructionName}, DSL0]) = new ${clazz.name}[({type l[A] = freek.OnionT[cats.free.Free, subDSL.Cop, O0, A]})#l] {
+             import freek._
+             ..${implDefs(generateFreekoImpl)}
+           }
+
            ..$body
         }
       """
@@ -90,10 +98,7 @@ package object dsl {
         $modifiedCompanion""")
     }
 
-//    def implo[DSL0 <: freek.DSL, O0 <: freek.Onion: freek.Pointer: freek.Mapper: freek.Binder: freek.Traverser](implicit subDSL: freek.SubDSL1[${traitName}, DSL0]) = new ${clazz.name}[({type l[A] = freek.OnionT[cats.free.Free, subDSL.Cop, O0, A]})#l] {
-//      import freek._
-//      ..${implDefs(generateFreekoImpl)}
-//    }
+
 
     def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = generateCompanion(typeClass, companion.getOrElse(q"object ${typeClass.name.toTermName} {}"))
 
