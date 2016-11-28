@@ -89,7 +89,7 @@ object PureFreek2 extends App {
 
 object DSLTest extends App {
 
-  object DSLTestM {
+  object DSLTest1M {
     def interpreter = new Interpreter[Id] {
       def interpret[_] = {
         case get() => Right(1)
@@ -102,30 +102,47 @@ object DSLTest extends App {
     case class ItFailed(s: String) extends Error
   }
 
-  @dsl trait DSLTestM[M[_]] {
+  @dsl trait DSLTest1M[M[_]] {
     def get: M[Int]
     def getSet: M[Set[Int]]
     def option: M[Option[String]]
   }
 
+  object DSLTest2M {
+    def interpreter = new Interpreter[Id] {
+      def interpret[_] = {
+        case get() => Right("dsl2 is nice")
+      }
+    }
+  }
 
-  def prg[M[_]: Monad](implicit dSLTestM: DSLTestM[M]) =
+
+  @dsl trait DSLTest2M[M[_]] {
+    def get: M[String]
+  }
+
+
+  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M]) =
     for {
-      i <- dSLTestM.get
-      j <- dSLTestM.getSet
-      k <- dSLTestM.get
-      o <- dSLTestM.option
-    } yield (i, j, k, o)
+      i <- dslTest1M.get
+      j <- dslTest1M.getSet
+      k <- dslTest1M.get
+      l <- dslTest2M.get
+      o <- dslTest1M.option
+    } yield (i, j, k, l, o)
 
 
-  type I = DSLTestM.I :|: freek.NilDSL
-  type O = DSLTestM.O :&: Bulb
+  type I = DSLTest1M.I :|: DSLTest2M.I :|: freek.NilDSL
+  type O = DSLTest1M.O :&: DSLTest2M.O :&: Bulb
 
   val DSLInstance = freek.DSL.Make[I]
   type Context[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
 
-  implicit def dslTestImplicit = dslImpl[DSLTestM, I, O]
+  implicit def dslTest1Implicit = dslImpl[DSLTest1M, I, O]
+  implicit def dslTest2Implicit = dslImpl[DSLTest2M, I, O]
 
-  println(prg[Context].value.interpret(DSLTestM.interpreter))
+  val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
+
+  println(prg[Context].value.interpret(interpreter))
 }
 
