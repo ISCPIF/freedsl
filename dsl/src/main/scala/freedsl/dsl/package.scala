@@ -55,9 +55,9 @@ package object dsl {
            type O[T] = Either[Error, T]
            type I[T] = ${instructionName}[T]
 
-           trait Interpreter[T[_]] extends cats.~>[${instructionName}, T] {
-             def interpret[A]: (${instructionName}[A] => T[A])
-             def apply[A](f: ${instructionName}[A]) = interpret[A](f)
+           trait Interpreter[T[_]] extends cats.~>[I, T] {
+             def interpret[A]: (I[A] => T[A])
+             def apply[A](f: I[A]) = interpret[A](f)
            }
 
            ..$body
