@@ -40,53 +40,24 @@ package object dsl {
       def generateCaseClass(func: DefDef) = {
         val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
         //FIXME Issue proper error
-        q"case class ${TypeName(opTerm(func))}(..${params}) extends ${instructionName}[${func.tpt.children.drop(1).head}]"
+        q"case class ${TypeName(opTerm(func))}(..${params}) extends ${instructionName}[Either[Error, ${func.tpt.children.drop(1).head}]]"
       }
 
-
       val caseClasses = funcs.map(c => generateCaseClass(c))
-
-      val generateFreekImpl =
-        (func: DefDef) => {
-          val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-          q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0]"
-        }
-
-      val generateFreekoImpl =
-        (func: DefDef) => {
-          val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-          val returnType = func.tpt.children.drop(1).head
-
-          if(returnType.children.isEmpty) q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0].onionT[O0]"
-          else q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0].onion[O0]"
-        }
-
-      def implDefs(transform: DefDef => Tree) = funcs.map(transform)
-
 
       val modifiedCompanion = q"""
         $mods object $name extends ..$bases {
            sealed trait ${instructionName}[T]
            ..${caseClasses}
 
-           type DSL = freek.:|:[${instructionName}, freek.NilDSL]
-           val DSL = freek.DSL.Make[DSL]
+           sealed trait Error
 
-           type Instruction[T] = ${instructionName}[T]
+           type O[T] = Either[DSLTestM.Error, T]
+           type I[T] = ${instructionName}[T]
 
            trait Interpreter[T[_]] extends cats.~>[${instructionName}, T] {
              def interpret[A]: (${instructionName}[A] => T[A])
              def apply[A](f: ${instructionName}[A]) = interpret[A](f)
-           }
-
-           def impl[DSL0 <: freek.DSL](implicit subDSL: freek.SubDSL1[${instructionName}, DSL0]) = new ${clazz.name}[({type l[A] = cats.free.Free[subDSL.Cop, A]})#l] {
-             import freek._
-             ..${implDefs(generateFreekImpl)}
-           }
-
-           def implo[DSL0 <: freek.DSL, O0 <: freek.Onion: freek.Pointer: freek.Mapper: freek.Binder: freek.Traverser](implicit subDSL: freek.SubDSL1[${instructionName}, DSL0]) = new ${clazz.name}[({type l[A] = freek.OnionT[cats.free.Free, subDSL.Cop, O0, A]})#l] {
-             import freek._
-             ..${implDefs(generateFreekoImpl)}
            }
 
            ..$body
@@ -98,7 +69,31 @@ package object dsl {
         $modifiedCompanion""")
     }
 
+//    val generateFreekImpl =
+//      (func: DefDef) => {
+//        val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
+//        q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0]"
+//      }
+//
+//    val generateFreekoImpl =
+//      (func: DefDef) => {
+//        val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
+//        val returnType = func.tpt.children.drop(1).head
+//
+//        q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0].onionX1[O0]"
+//      }
+//    def impl[DSL0 <: freek.DSL](implicit subDSL: freek.SubDSL1[${instructionName}, DSL0]) = new ${clazz.name}[({type l[A] = cats.free.Free[subDSL.Cop, A]})#l] {
+//      import freek._
+//      ..${funcs.map(generateFreekImpl)}
+//    }
 
+//    def implo[DSL0 <: freek.DSL, O0 <: freek.Onion](implicit subDSL: freek.SubDSL1[${instructionName}, DSL0], lift: Lifter[({type l[A] = Either[Error, A]})#l, O0]) = new ${clazz.name}[({type l[A] = freek.OnionT[cats.free.Free, subDSL.Cop, O0, A]})#l] {
+//      import freek._
+//      import cats._
+//      import cats.implicits._
+//
+//      ..${funcs.map(generateFreekoImpl)}
+//    }
 
     def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = generateCompanion(typeClass, companion.getOrElse(q"object ${typeClass.name.toTermName} {}"))
 
@@ -118,6 +113,46 @@ package object dsl {
     def macroTransform(annottees: Any*): Any = macro dsl_impl
   }
 
+  def dslImpl_Impl[T[_[_]], I: c.WeakTypeTag, O: c.WeakTypeTag](c: Context)(implicit tTypeTag: c.WeakTypeTag[T[Nothing]]): c.Expr[Any] = {
+    import c.universe._
 
+    val tType = weakTypeOf[T[Nothing]]
+    val dslType = weakTypeOf[I]
+    val oType = weakTypeOf[O]
+
+    val tTypeName =  tType.typeSymbol.asType.name
+
+    val funcs: List[MethodSymbol] = tType.decls.collect { case s: MethodSymbol ⇒ s }.toList
+
+    val generateFreekoImpl =
+      (func: MethodSymbol) => {
+        val params = func.paramLists.flatMap(_.map(p => q"${p.name.toTermName}: ${p.typeSignature}"))
+        val companion = tTypeName.toTermName
+        q"def ${func.name}(..${params}) = ${companion}.${func.name}(..${params}).freek[${dslType}].onionX1[${oType}]"
+      }
+
+    val implem = q"""{
+      val DSLInstance = freek.DSL.Make[I]
+
+      new $tTypeName[({type l[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, ${oType}, T]})#l] {
+        import freek._
+        ..${funcs.map(generateFreekoImpl)}
+      }
+    }"""
+
+    c.Expr(implem)
+  }
+
+  def dslImpl[T[_[_]], I, O] = macro dslImpl_Impl[T, I, O]
+
+
+//  def context[I: c.WeakTypeTag, O: c.WeakTypeTag](c: Context) = {
+//    import c.universe._
+//
+//    q"""{
+//        val DSLInstance = freek.DSL.Make[I]
+//        type Context[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
+//        }"""
+//  }
 
 }

@@ -23,7 +23,7 @@ import freedsl.dsl._
 object Random {
 
   def interpreter(random: util.Random) = new Interpreter[Id] {
-    def interpret[A] = {
+    def interpret[_] = {
       case nextDouble() => random.nextDouble
       case nextInt(n) => random.nextInt(n)
     }
