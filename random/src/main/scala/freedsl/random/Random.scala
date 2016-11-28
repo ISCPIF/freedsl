@@ -18,14 +18,15 @@
 package freedsl.random
 
 import cats._
+import cats.implicits._
 import freedsl.dsl._
 
 object Random {
 
   def interpreter(random: util.Random) = new Interpreter[Id] {
     def interpret[_] = {
-      case nextDouble() => random.nextDouble
-      case nextInt(n) => random.nextInt(n)
+      case nextDouble() => Right(random.nextDouble)
+      case nextInt(n) => Right(random.nextInt(n))
     }
   }
 

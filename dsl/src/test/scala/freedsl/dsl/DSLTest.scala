@@ -94,7 +94,7 @@ object DSLTest extends App {
       def interpret[_] = {
         case get() => Right(1)
         case getSet() => Right(Set(1))
-         case option() => Right(Some("cool"))
+        case option() => Right(Some("cool"))
       }
     }
 

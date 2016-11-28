@@ -52,7 +52,7 @@ package object dsl {
 
            sealed trait Error
 
-           type O[T] = Either[DSLTestM.Error, T]
+           type O[T] = Either[Error, T]
            type I[T] = ${instructionName}[T]
 
            trait Interpreter[T[_]] extends cats.~>[${instructionName}, T] {

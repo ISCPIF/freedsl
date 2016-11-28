@@ -24,7 +24,7 @@ object Log {
 
  def interpreter = new Interpreter[Id] {
    def interpret[_] = {
-     case print(s) => println(s)
+     case print(s) => Right(println(s))
    }
  }
 
