@@ -23,6 +23,13 @@ import scala.reflect.macros.whitebox.Context
 
 package object dsl {
 
+  trait DSLObject {
+    type I[_]
+    type O[_]
+  }
+
+  trait DSLError
+
   def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
     import c.universe._
 
@@ -44,13 +51,15 @@ package object dsl {
       }
 
       val caseClasses = funcs.map(c => generateCaseClass(c))
+      val dslObjectType = weakTypeOf[DSLObject]
+      val dslErrorType = weakTypeOf[DSLError]
 
       val modifiedCompanion = q"""
-        $mods object $name extends ..$bases {
+        $mods object $name extends ..$bases with $dslObjectType {
            sealed trait ${instructionName}[T]
            ..${caseClasses}
 
-           sealed trait Error
+           sealed trait Error extends $dslErrorType
 
            type O[T] = Either[Error, T]
            type I[T] = ${instructionName}[T]
@@ -145,6 +154,46 @@ package object dsl {
 
   def dslImpl[T[_[_]], I, O] = macro dslImpl_Impl[T, I, O]
 
+
+  def context_impl(c: Context)(objects: c.Expr[Any]*): c.Expr[Any] = {
+    import c.universe._
+
+    val I = objects.map( o => tq"$o.I": Tree).foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"$o1 :|: $o2": Tree)
+    val O = objects.map( o => tq"$o.O": Tree).foldRight(tq"freek.Bulb": Tree)((o1, o2) => tq"$o1 :&: $o2": Tree)
+
+//    def wrapIn(n: Int, w: String => String, s: String): String =
+//      n match {
+//        case 0 => s
+//        case n => w(wrapIn(n - 1, w, s))
+//      }
+//
+//    def cases(level: Int): List[String] =
+//      (level to 0 by -1).toList flatMap { l =>
+//
+//        List(
+//          wrapIn(l, w => s"Right($w)", "Left(x)"),
+//          wrapIn(l, w => s"Right($w)", "Right(x)")
+//        )
+//      } map { w => s"case $w => x" }
+//
+//    def mutliEither(level: Int): String = wrapIn(level, w => s"Either[freedsl.dsl.DSLError, $w]", "T")
+//
+//    println(cases(objects.size))
+//    println(mutliEither(objects.size))
+
+    val res = c.Expr(
+      q"""new {
+           type I = $I
+           type O = $O
+           val DSLInstance = freek.DSL.Make[I]
+           type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
+
+         }""")
+
+    res
+  }
+
+  def merge(objects: Any*) = macro context_impl
 
 //  def context[I: c.WeakTypeTag, O: c.WeakTypeTag](c: Context) = {
 //    import c.universe._

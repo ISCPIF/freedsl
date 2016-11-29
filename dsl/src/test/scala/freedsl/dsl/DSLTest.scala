@@ -135,14 +135,21 @@ object DSLTest extends App {
   type I = DSLTest1M.I :|: DSLTest2M.I :|: freek.NilDSL
   type O = DSLTest1M.O :&: DSLTest2M.O :&: Bulb
 
-  val DSLInstance = freek.DSL.Make[I]
-  type Context[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
+  val c = merge(DSLTest1M, DSLTest2M)
 
-  implicit def dslTest1Implicit = dslImpl[DSLTest1M, I, O]
-  implicit def dslTest2Implicit = dslImpl[DSLTest2M, I, O]
+  implicit def dslTest1Implicit = dslImpl[DSLTest1M, c.I, c.O]
+  implicit def dslTest2Implicit = dslImpl[DSLTest2M, c.I, c.O]
 
   val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
 
-  println(prg[Context].value.interpret(interpreter))
+  def unwrap[A, B, T](e: Either[A, Either[B, T]]) = {
+    e match {
+      case Left(a) => a
+      case Right(Left(b)) => b
+      case Right(Right(t)) => t
+    }
+  }
+
+  println(unwrap(prg[c.M].value.interpret(interpreter)))
 }
 
