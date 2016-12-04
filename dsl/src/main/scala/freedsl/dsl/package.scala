@@ -75,7 +75,7 @@ package object dsl {
         }
       """
 
-      println(modifiedCompanion)
+     // println(modifiedCompanion)
 
       c.Expr(q"""
         $clazz
@@ -165,7 +165,7 @@ package object dsl {
     val O = objects.map(o => tq"${o}.O").foldRight(tq"freek.Bulb": Tree)((o1, o2) => tq"$o1 :&: $o2": Tree)
 
     def implicitFunction(o: Tree) =
-      q"implicit def ${TermName(c.freshName("impl"))} = dslImpl[${o}.TypeClass, I, O]"
+      q"implicit def ${TermName(c.freshName("impl"))} = freedsl.dsl.dslImpl[${o}.TypeClass, I, O]"
 
 //    def wrapIn(n: Int, w: String => String, s: String): String =
 //      n match {
@@ -189,14 +189,13 @@ package object dsl {
 
     val res = c.Expr(
       q"""new { self =>
-
            type I = $I
            type O = $O
            val DSLInstance = freek.DSL.Make[I]
            type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
            ..${objects.map(o => implicitFunction(tq"${o}"))}
          }""")
-println(res)
+//println(res)
     res
   }
 
