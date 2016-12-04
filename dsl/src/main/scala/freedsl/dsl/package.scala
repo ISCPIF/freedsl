@@ -56,6 +56,8 @@ package object dsl {
 
       val modifiedCompanion = q"""
         $mods object $name extends ..$bases with $dslObjectType {
+           type TypeClass[M[_]] = ${clazz.name}[M]
+
            sealed trait ${instructionName}[T]
            ..${caseClasses}
 
@@ -72,6 +74,8 @@ package object dsl {
            ..$body
         }
       """
+
+      println(modifiedCompanion)
 
       c.Expr(q"""
         $clazz
@@ -154,12 +158,14 @@ package object dsl {
 
   def dslImpl[T[_[_]], I, O] = macro dslImpl_Impl[T, I, O]
 
-
   def context_impl(c: Context)(objects: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
-    val I = objects.map( o => tq"$o.I": Tree).foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"$o1 :|: $o2": Tree)
-    val O = objects.map( o => tq"$o.O": Tree).foldRight(tq"freek.Bulb": Tree)((o1, o2) => tq"$o1 :&: $o2": Tree)
+    val I = objects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"$o1 :|: $o2": Tree)
+    val O = objects.map(o => tq"${o}.O").foldRight(tq"freek.Bulb": Tree)((o1, o2) => tq"$o1 :&: $o2": Tree)
+
+    def implicitFunction(o: Tree) =
+      q"implicit def ${TermName(c.freshName("impl"))} = dslImpl[${o}.TypeClass, I, O]"
 
 //    def wrapIn(n: Int, w: String => String, s: String): String =
 //      n match {
@@ -182,16 +188,21 @@ package object dsl {
 //    println(mutliEither(objects.size))
 
     val res = c.Expr(
-      q"""new {
+      q"""new { self =>
+
            type I = $I
            type O = $O
            val DSLInstance = freek.DSL.Make[I]
            type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
-
+           ..${objects.map(o => implicitFunction(tq"${o}"))}
          }""")
-
+println(res)
     res
   }
+
+
+//  type I = $I
+//  type O = $O
 
   def merge(objects: Any*) = macro context_impl
 

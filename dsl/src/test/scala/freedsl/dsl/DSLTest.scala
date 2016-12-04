@@ -132,13 +132,7 @@ object DSLTest extends App {
     } yield (i, j, k, l, o)
 
 
-  type I = DSLTest1M.I :|: DSLTest2M.I :|: freek.NilDSL
-  type O = DSLTest1M.O :&: DSLTest2M.O :&: Bulb
-
   val c = merge(DSLTest1M, DSLTest2M)
-
-  implicit def dslTest1Implicit = dslImpl[DSLTest1M, c.I, c.O]
-  implicit def dslTest2Implicit = dslImpl[DSLTest2M, c.I, c.O]
 
   val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
 
@@ -150,6 +144,7 @@ object DSLTest extends App {
     }
   }
 
+  import c._
   println(unwrap(prg[c.M].value.interpret(interpreter)))
 }
 
