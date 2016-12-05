@@ -27,6 +27,7 @@ object Random {
     def interpret[_] = {
       case nextDouble() => Right(random.nextDouble)
       case nextInt(n) => Right(random.nextInt(n))
+      case shuffle(s) => Right(random.shuffle(s))
     }
   }
 
@@ -37,4 +38,5 @@ object Random {
 @dsl trait Random[M[_]] {
   def nextDouble: M[Double]
   def nextInt(n: Int): M[Int]
+  def shuffle[A](s: Seq[A]): M[Seq[A]]
 }
