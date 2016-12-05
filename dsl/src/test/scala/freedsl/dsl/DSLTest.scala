@@ -19,7 +19,6 @@ package freedsl.dsl
 
 import cats._
 import cats.data._
-import cats.free.Free
 import freek._
 import cats.implicits._
 import scala.language.experimental.macros
@@ -61,18 +60,20 @@ object PureFreek2 extends App {
   final case class GetSet() extends Instruction[Option[Set[Int]]]
   final case class GetMap() extends Instruction[Option[Map[Int, Int]]]
   final case class GetMap2() extends Instruction[Ior[String, Map[Int, Int]]]
+  final case class ParametricGet[A](a: A) extends Instruction[Option[A]]
 
 
-  type DSL = Instruction :|: NilDSL
+  type I = Instruction :|: NilDSL
   type O = Ior[String, ?] :&: Option :&: Bulb
 
-  val prog =
+  def prog[T](t: T) =
     for {
-      i <- Get().freek[DSL].onionX1[O]
-      j <- GetSet().freek[DSL].onionX1[O]
-      k <- GetMap().freek[DSL].onionX1[O]
-      l <- GetMap2().freek[DSL].onionX1[O]
-    } yield (i, j, k, l)
+      i <- Get().freek[I].onionX1[O]
+      j <- GetSet().freek[I].onionX1[O]
+      k <- GetMap().freek[I].onionX1[O]
+      l <- GetMap2().freek[I].onionX1[O]
+      m <- ParametricGet(t).freek[I].onionX1[O]
+    } yield (i, j, k, l, m)
 
   def interpreter = new (Instruction ~> Id) {
     def apply[A](a: Instruction[A]) = a match {
@@ -80,10 +81,11 @@ object PureFreek2 extends App {
       case GetSet() => Some(Set(1))
       case GetMap() => Some(Map(1 -> 1))
       case GetMap2() => Ior.right(Map(8 -> 9))
+      case ParametricGet(a) => Some(a)
     }
   }
 
-  println(prog.value.interpret(interpreter))
+  println(prog(9).value.interpret(interpreter))
 }
 
 
@@ -95,6 +97,8 @@ object DSLTest extends App {
         case get() => Right(1)
         case getSet() => Right(Set(1))
         case option() => Right(Some("cool"))
+        case set(i) => Right(i)
+        case param(a) => Right(a)
       }
     }
 
@@ -106,6 +110,8 @@ object DSLTest extends App {
     def get: M[Int]
     def getSet: M[Set[Int]]
     def option: M[Option[String]]
+    def set(i: Int): M[Int]
+    def param[A](a: A): M[A]
   }
 
   object DSLTest2M {
@@ -115,7 +121,6 @@ object DSLTest extends App {
       }
     }
   }
-
 
   @dsl trait DSLTest2M[M[_]] {
     def get: M[String]

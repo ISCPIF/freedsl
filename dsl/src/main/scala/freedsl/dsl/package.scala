@@ -46,8 +46,7 @@ package object dsl {
 
       def generateCaseClass(func: DefDef) = {
         val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-        //FIXME Issue proper error
-        q"case class ${TypeName(opTerm(func))}(..${params}) extends ${instructionName}[Either[Error, ${func.tpt.children.drop(1).head}]]"
+        q"case class ${TypeName(opTerm(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[Error, ${func.tpt.children.drop(1).head}]]"
       }
 
       val caseClasses = funcs.map(c => generateCaseClass(c))
@@ -75,38 +74,12 @@ package object dsl {
         }
       """
 
-     // println(modifiedCompanion)
+      //println(modifiedCompanion)
 
       c.Expr(q"""
         $clazz
         $modifiedCompanion""")
     }
-
-//    val generateFreekImpl =
-//      (func: DefDef) => {
-//        val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-//        q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0]"
-//      }
-//
-//    val generateFreekoImpl =
-//      (func: DefDef) => {
-//        val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-//        val returnType = func.tpt.children.drop(1).head
-//
-//        q"def ${func.name}(..${params}) = $name.${TermName(opTerm(func))}(..${params}).freek[DSL0].onionX1[O0]"
-//      }
-//    def impl[DSL0 <: freek.DSL](implicit subDSL: freek.SubDSL1[${instructionName}, DSL0]) = new ${clazz.name}[({type l[A] = cats.free.Free[subDSL.Cop, A]})#l] {
-//      import freek._
-//      ..${funcs.map(generateFreekImpl)}
-//    }
-
-//    def implo[DSL0 <: freek.DSL, O0 <: freek.Onion](implicit subDSL: freek.SubDSL1[${instructionName}, DSL0], lift: Lifter[({type l[A] = Either[Error, A]})#l, O0]) = new ${clazz.name}[({type l[A] = freek.OnionT[cats.free.Free, subDSL.Cop, O0, A]})#l] {
-//      import freek._
-//      import cats._
-//      import cats.implicits._
-//
-//      ..${funcs.map(generateFreekoImpl)}
-//    }
 
     def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = generateCompanion(typeClass, companion.getOrElse(q"object ${typeClass.name.toTermName} {}"))
 
@@ -126,92 +99,74 @@ package object dsl {
     def macroTransform(annottees: Any*): Any = macro dsl_impl
   }
 
-  def dslImpl_Impl[T[_[_]], I: c.WeakTypeTag, O: c.WeakTypeTag](c: Context)(implicit tTypeTag: c.WeakTypeTag[T[Nothing]]): c.Expr[Any] = {
-    import c.universe._
-
-    val tType = weakTypeOf[T[Nothing]]
-    val dslType = weakTypeOf[I]
-    val oType = weakTypeOf[O]
-
-    val tTypeName =  tType.typeSymbol.asType.name
-
-    val funcs: List[MethodSymbol] = tType.decls.collect { case s: MethodSymbol ⇒ s }.toList
-
-    val generateFreekoImpl =
-      (func: MethodSymbol) => {
-        val params = func.paramLists.flatMap(_.map(p => q"${p.name.toTermName}: ${p.typeSignature}"))
-        val companion = tTypeName.toTermName
-        q"def ${func.name}(..${params}) = ${companion}.${func.name}(..${params}).freek[${dslType}].onionX1[${oType}]"
-      }
-
-    val implem = q"""{
-      val DSLInstance = freek.DSL.Make[I]
-
-      new $tTypeName[({type l[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, ${oType}, T]})#l] {
-        import freek._
-        ..${funcs.map(generateFreekoImpl)}
-      }
-    }"""
-
-    c.Expr(implem)
-  }
-
-  def dslImpl[T[_[_]], I, O] = macro dslImpl_Impl[T, I, O]
-
   def context_impl(c: Context)(objects: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
     val I = objects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"$o1 :|: $o2": Tree)
     val O = objects.map(o => tq"${o}.O").foldRight(tq"freek.Bulb": Tree)((o1, o2) => tq"$o1 :&: $o2": Tree)
 
-    def implicitFunction(o: Tree) =
-      q"implicit def ${TermName(c.freshName("impl"))} = freedsl.dsl.dslImpl[${o}.TypeClass, I, O]"
+    val mType = q"type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]"
 
-//    def wrapIn(n: Int, w: String => String, s: String): String =
-//      n match {
-//        case 0 => s
-//        case n => w(wrapIn(n - 1, w, s))
-//      }
-//
-//    def cases(level: Int): List[String] =
-//      (level to 0 by -1).toList flatMap { l =>
-//
-//        List(
-//          wrapIn(l, w => s"Right($w)", "Left(x)"),
-//          wrapIn(l, w => s"Right($w)", "Right(x)")
-//        )
-//      } map { w => s"case $w => x" }
-//
-//    def mutliEither(level: Int): String = wrapIn(level, w => s"Either[freedsl.dsl.DSLError, $w]", "T")
-//
-//    println(cases(objects.size))
-//    println(mutliEither(objects.size))
+    def implicitFunction(o: c.Expr[Any]) = {
+      val typeClass = q"${o}".symbol.asModule.typeSignature.members.collect { case sym: TypeSymbol if sym.name == TypeName("TypeClass") => sym}.head
+      val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol ⇒ s }.toList
+
+      def generateFreekoImpl(m: MethodSymbol) = {
+          import compat._
+          val typeParams = m.typeParams.map(TypeDef(_))
+          val paramss = m.paramLists.map(_.map(ValDef(_)))
+          val returns = TypeTree(m.returnType)
+          val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
+
+          q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${m.name}(..${paramValues}).freek[I].onionX1[O] }"
+        }
+
+        val implem = q"""{
+          new ${o}.TypeClass[M] {
+              import freek._
+              ..${funcs.map(f => generateFreekoImpl(f))}
+            }
+          }"""
+
+      q"implicit def ${TermName(c.freshName("impl"))} = $implem"
+    }
+
 
     val res = c.Expr(
       q"""new { self =>
            type I = $I
            type O = $O
            val DSLInstance = freek.DSL.Make[I]
-           type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
-           ..${objects.map(o => implicitFunction(tq"${o}"))}
+           $mType
+           import  freek._
+           ..${objects.map(o => implicitFunction(o))}
          }""")
-//println(res)
+
+    //println(res)
     res
   }
 
-
-//  type I = $I
-//  type O = $O
-
   def merge(objects: Any*) = macro context_impl
 
-//  def context[I: c.WeakTypeTag, O: c.WeakTypeTag](c: Context) = {
-//    import c.universe._
-//
-//    q"""{
-//        val DSLInstance = freek.DSL.Make[I]
-//        type Context[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
-//        }"""
-//  }
 
+
+  //    def wrapIn(n: Int, w: String => String, s: String): String =
+  //      n match {
+  //        case 0 => s
+  //        case n => w(wrapIn(n - 1, w, s))
+  //      }
+  //
+  //    def cases(level: Int): List[String] =
+  //      (level to 0 by -1).toList flatMap { l =>
+  //
+  //        List(
+  //          wrapIn(l, w => s"Right($w)", "Left(x)"),
+  //          wrapIn(l, w => s"Right($w)", "Right(x)")
+  //        )
+  //      } map { w => s"case $w => x" }
+  //
+  //    def mutliEither(level: Int): String = wrapIn(level, w => s"Either[freedsl.dsl.DSLError, $w]", "T")
+  //
+  //    println(cases(objects.size))
+  //    println(mutliEither(objects.size))
 }
