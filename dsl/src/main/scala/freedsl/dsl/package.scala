@@ -112,9 +112,8 @@ package object dsl {
       val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol ⇒ s }.toList
 
       def generateFreekoImpl(m: MethodSymbol) = {
-          import compat._
-          val typeParams = m.typeParams.map(TypeDef(_))
-          val paramss = m.paramLists.map(_.map(ValDef(_)))
+          val typeParams = m.typeParams.map(t => internal.typeDef(t))
+          val paramss = m.paramLists.map(_.map(p => internal.valDef(p)))
           val returns = TypeTree(m.returnType)
           val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
 
