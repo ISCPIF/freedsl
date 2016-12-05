@@ -55,7 +55,7 @@ package object dsl {
 
       val modifiedCompanion = q"""
         $mods object $name extends ..$bases with $dslObjectType {
-           type TypeClass[M[_]] = ${clazz.name}[M]
+           type TypeClass[..${clazz.tparams}] = ${clazz.name}[M]
 
            sealed trait ${instructionName}[T]
            ..${caseClasses}
@@ -89,7 +89,7 @@ package object dsl {
       case other :: Nil =>
         c.abort(
           c.enclosingPosition,
-          "@typeclass can only be applied to traits or abstract classes that take 1 type parameter which is either a proper type or a type constructor"
+          "@dsl can only be applied to traits or abstract classes that take 1 type parameter which is either a proper type or a type constructor"
         )
     }
 
