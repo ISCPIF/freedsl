@@ -126,7 +126,6 @@ object DSLTest extends App {
     def get: M[String]
   }
 
-
   def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M]) =
     for {
       i <- dslTest1M.get

@@ -55,7 +55,7 @@ package object dsl {
 
       val modifiedCompanion = q"""
         $mods object $name extends ..$bases with $dslObjectType {
-           type TypeClass[..${clazz.tparams}] = ${clazz.name}[M]
+           type TypeClass[..${clazz.tparams}] = ${clazz.name}[..${clazz.tparams.map(_.name)}]
 
            sealed trait ${instructionName}[T]
            ..${caseClasses}
@@ -74,8 +74,6 @@ package object dsl {
         }
       """
 
-      //println(modifiedCompanion)
-
       c.Expr(q"""
         $clazz
         $modifiedCompanion""")
@@ -83,14 +81,26 @@ package object dsl {
 
     def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = generateCompanion(typeClass, companion.getOrElse(q"object ${typeClass.name.toTermName} {}"))
 
+    def applicationConditionError =
+       c.abort(
+         c.enclosingPosition,
+         "@dsl can only be applied to traits or abstract classes that take 1 type parameter which is either a proper type or a type constructor"
+       )
+
+    def check(classDef: ClassDef): Option[Nothing] =
+      classDef.tparams match {
+        case List(p) =>
+          p.tparams match {
+            case List(pp) => None
+            case _ => applicationConditionError
+          }
+        case _ => applicationConditionError
+      }
+
     annottees.map(_.tree) match {
-      case (typeClass: ClassDef) :: Nil => modify(typeClass, None)
-      case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil => modify(typeClass, Some(companion))
-      case other :: Nil =>
-        c.abort(
-          c.enclosingPosition,
-          "@dsl can only be applied to traits or abstract classes that take 1 type parameter which is either a proper type or a type constructor"
-        )
+      case (typeClass: ClassDef) :: Nil => check(typeClass) getOrElse modify(typeClass, None)
+      case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil => check(typeClass) getOrElse modify(typeClass, Some(companion))
+      case other :: Nil => applicationConditionError
     }
 
   }
@@ -112,22 +122,24 @@ package object dsl {
       val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol ⇒ s }.toList
 
       def generateFreekoImpl(m: MethodSymbol) = {
-          val typeParams = m.typeParams.map(t => internal.typeDef(t))
-          val paramss = m.paramLists.map(_.map(p => internal.valDef(p)))
-          val returns = TypeTree(m.returnType)
-          val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
+        val typeParams = m.typeParams.map(t => internal.typeDef(t))
+        val paramss = m.paramLists.map(_.map(p => internal.valDef(p)))
+        val returns = TypeTree(m.returnType)
+        val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
 
-          q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${m.name}(..${paramValues}).freek[I].onionX1[O] }"
-        }
+        q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${m.name}(..${paramValues}).freek[I].onionX1[O] }"
+      }
 
-        val implem = q"""{
-          new ${o}.TypeClass[M] {
-              import freek._
-              ..${funcs.map(f => generateFreekoImpl(f))}
-            }
-          }"""
-
-      q"implicit def ${TermName(c.freshName("impl"))} = $implem"
+      val implem = q"""{
+        new ${o}.TypeClass[M] {
+            import freek._
+            ..${funcs.map(f => generateFreekoImpl(f))}
+          }
+        }"""
+      typeClass.typeParams.size match {
+        case 1 => Some (q"implicit def ${TermName (c.freshName ("impl") )} = $implem")
+        case 0 => None
+      }
     }
 
 
@@ -138,7 +150,7 @@ package object dsl {
            val DSLInstance = freek.DSL.Make[I]
            $mType
            import  freek._
-           ..${objects.map(o => implicitFunction(o))}
+           ..${objects.flatMap(o => implicitFunction(o))}
          }""")
 
     //println(res)
