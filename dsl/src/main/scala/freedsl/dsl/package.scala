@@ -38,9 +38,13 @@ package object dsl {
       val instructionName = TypeName(c.freshName("Instruction"))
       val q"$mods object $name extends ..$bases { ..$body }" = comp
 
-      val funcs = clazz.impl.children.collect {
-        case m: DefDef if !m.mods.hasFlag(Flag.PRIVATE) && !m.mods.hasFlag(Flag.PROTECTED) => m
-      }
+      val funcs =
+        clazz.impl.children.collect {
+          case m: DefDef
+            if !m.mods.hasFlag(Flag.PRIVATE) &&
+              !m.mods.hasFlag(Flag.PROTECTED) &&
+              m.mods.hasFlag(Flag.DEFERRED) => m
+        }
 
       def opTerm(func: DefDef) = func.name.toString
 
