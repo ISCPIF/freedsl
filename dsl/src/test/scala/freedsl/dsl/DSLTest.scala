@@ -126,6 +126,7 @@ object DSLTest extends App {
     def get: M[String]
   }
 
+
   def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M]) =
     for {
       i <- dslTest1M.get
@@ -137,18 +138,10 @@ object DSLTest extends App {
 
 
   val c = merge(DSLTest1M, DSLTest2M)
-
-  val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
-
-  def unwrap[A, B, T](e: Either[A, Either[B, T]]) = {
-    e match {
-      case Left(a) => a
-      case Right(Left(b)) => b
-      case Right(Right(t)) => t
-    }
-  }
-
   import c._
-  println(unwrap(prg[c.M].value.interpret(interpreter)))
+  val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
+  val res = prg[M].value.interpret(interpreter)
+  println(result.getOption(res))
+
 }
 

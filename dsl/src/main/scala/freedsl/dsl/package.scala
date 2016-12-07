@@ -34,17 +34,18 @@ package object dsl {
     import c.universe._
 
     def generateCompanion(clazz: ClassDef, comp: Tree) = {
-
       val instructionName = TypeName(c.freshName("Instruction"))
       val q"$mods object $name extends ..$bases { ..$body }" = comp
 
-      val funcs =
-        clazz.impl.children.collect {
+      def collect(t: List[Tree]): List[DefDef] =
+        t.collect {
           case m: DefDef
             if !m.mods.hasFlag(Flag.PRIVATE) &&
               !m.mods.hasFlag(Flag.PROTECTED) &&
               m.mods.hasFlag(Flag.DEFERRED) => m
         }
+
+      val funcs = collect(clazz.impl.children)
 
       def opTerm(func: DefDef) = func.name.toString
 
@@ -104,7 +105,7 @@ package object dsl {
     annottees.map(_.tree) match {
       case (typeClass: ClassDef) :: Nil => check(typeClass) getOrElse modify(typeClass, None)
       case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil => check(typeClass) getOrElse modify(typeClass, Some(companion))
-      case other :: Nil => applicationConditionError
+      case other :: Nil =>applicationConditionError
     }
 
   }
@@ -146,18 +147,30 @@ package object dsl {
       }
     }
 
+    monocle.std.either.stdRight[Int, Either[Int, Int]] composePrism monocle.std.either.stdRight[Int, Int] composePrism monocle.Prism.id[Int]
+
+    //   val resType = objects.foldRight(tq"T": Tree) { (o1, c) => tq"Either[${o1}.Error,$c]": Tree }
+
+    val (resType, resLens) = objects.foldRight((tq"T": Tree, q"monocle.Prism.id[T]": Tree)) {
+      case (o1, (t, c)) =>
+        val curType = tq"Either[${o1}.Error,$t]"
+        (curType: Tree, q"monocle.std.either.stdRight[${o1}.Error, $t] composePrism $c")
+    }
 
     val res = c.Expr(
       q"""new { self =>
            type I = $I
            type O = $O
+
+           def result[T] = $resLens
+
            val DSLInstance = freek.DSL.Make[I]
            $mType
            import  freek._
            ..${objects.flatMap(o => implicitFunction(o))}
          }""")
 
-    //println(res)
+   // println(res)
     res
   }
 
