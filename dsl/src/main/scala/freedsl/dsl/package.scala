@@ -117,8 +117,8 @@ package object dsl {
   def context_impl(c: Context)(objects: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
-    val I = objects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"$o1 :|: $o2": Tree)
-    val O = objects.map(o => tq"${o}.O").foldRight(tq"freek.Bulb": Tree)((o1, o2) => tq"$o1 :&: $o2": Tree)
+    val I = objects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"freek.:|:[$o1, $o2]": Tree)
+    val O = objects.map(o => tq"${o}.O").foldRight(tq"freek.Bulb": Tree)((o1, o2) => tq"freek.:&:[$o1, $o2]": Tree)
 
     val mType = q"type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]"
 
