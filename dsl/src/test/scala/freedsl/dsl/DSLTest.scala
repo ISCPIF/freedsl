@@ -17,13 +17,14 @@
   */
 package freedsl.dsl
 
-import cats._
-import cats.data._
-import freek._
-import cats.implicits._
-import scala.language.experimental.macros
+
 
 object PureFreek extends App {
+
+  import cats._
+  import cats.data._
+  import freek._
+  import cats.implicits._
 
   sealed trait Instruction[T]
   final case class Get() extends Instruction[Int]
@@ -54,6 +55,11 @@ object PureFreek extends App {
 
 
 object PureFreek2 extends App {
+
+  import cats._
+  import cats.data._
+  import freek._
+  import cats.implicits._
 
   sealed trait Instruction[T]
   final case class Get() extends Instruction[Option[Int]]
@@ -126,6 +132,10 @@ object DSLTest extends App {
     def get: M[String]
   }
 
+
+  import cats._
+  import cats.implicits._
+  import freek._
 
   def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M]) =
     for {

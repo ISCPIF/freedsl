@@ -60,6 +60,8 @@ package object dsl {
 
       val modifiedCompanion = q"""
         $mods object $name extends ..$bases with $dslObjectType {
+           import cats._
+
            type TypeClass[..${clazz.tparams}] = ${clazz.name}[..${clazz.tparams.map(_.name)}]
 
            sealed trait ${instructionName}[T]
@@ -137,7 +139,6 @@ package object dsl {
 
       val implem = q"""{
         new ${o}.TypeClass[M] {
-            import freek._
             ..${funcs.map(f => generateFreekoImpl(f))}
           }
         }"""
@@ -159,6 +160,10 @@ package object dsl {
 
     val res = c.Expr(
       q"""new { self =>
+           import freek._
+           import cats._
+           import cats.implicits._
+
            type I = $I
            type O = $O
 
