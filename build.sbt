@@ -1,5 +1,5 @@
 
-def modules = Seq(dsl, random, log)
+def modules = Seq(dsl, random, log, util)
 
 lazy val root =
   Project(id = "all", base = file(".")).settings(settings: _*).
@@ -38,9 +38,11 @@ def settings = Seq (
   )
 )
 
+
+lazy val dsl = Project(id = "dsl", base = file("dsl")).settings(settings: _*)
 lazy val random = Project(id = "random", base = file("random")).settings(settings: _*) dependsOn(dsl)
 lazy val log = Project(id = "log", base = file("log")).settings(settings: _*) dependsOn(dsl)
-lazy val dsl = Project(id = "dsl", base = file("dsl")).settings(settings: _*)
+lazy val util = Project(id = "util", base = file("util")).settings(settings: _*) dependsOn(dsl)
 
 
 
