@@ -191,8 +191,8 @@ package object dsl {
            def result[T](t: $resType) =
             (value(t), error(t)) match {
               case (Some(v), _) => Right(v)
-              case (None, Some(e)) => Left(e)
-              case _ => sys.error("Result is either a value or an error")
+              case (_, Some(e)) => Left(e)
+              case (None, None) => sys.error("Result is either a value or an error")
             }
 
            val DSLInstance = freek.DSL.Make[I]
