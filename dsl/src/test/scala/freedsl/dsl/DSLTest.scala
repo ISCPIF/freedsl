@@ -146,12 +146,11 @@ object DSLTest extends App {
       o <- dslTest1M.option
     } yield (i, j, k, l, o)
 
-
   val c = merge(DSLTest1M, DSLTest2M)
   import c._
   val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
   val res = prg[M].value.interpret(interpreter)
-  println(result.getOption(res))
+  println(result(res))
 
 }
 

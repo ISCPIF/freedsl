@@ -158,6 +158,21 @@ package object dsl {
         (curType: Tree, q"monocle.std.either.stdRight[${o1}.Error, $t] composePrism $c")
     }
 
+
+    def getError(level: Int) = {
+      val name = TermName(s"error$level") //c.freshName("getError")
+      def getter = (0 until level).foldLeft(q"Some(v)": Tree)((e,_) => q"$e.flatMap(_.right.toOption)": Tree)
+      q"def ${name}[T](v: $resType) = $getter.flatMap(_.left.toOption)"
+    }
+
+    def anyError(levels: Int) = {
+      def errors =
+        (0 until levels).foldLeft(q"None": Tree)((e, i) => q"$e orElse ${TermName(s"error$i")}(v)")
+
+      q"def error[T](v: $resType) = $errors"
+    }
+
+
     val res = c.Expr(
       q"""new { self =>
            import freek._
@@ -167,7 +182,18 @@ package object dsl {
            type I = $I
            type O = $O
 
-           def result[T] = $resLens
+           def valueLens[T] = $resLens
+           def value[T](t: $resType) = valueLens.getOption(t)
+
+           ..${(0 until objects.size).map(i => getError(i))}
+           ${anyError(objects.size)}
+
+           def result[T](t: $resType): Either[freedsl.dsl.DSLError, T] =
+            (value(t), error(t)) match {
+              case (Some(v), _) => Right(v)
+              case (None, Some(e)) => Left(e)
+              case _ => sys.error("Result is either a value or an error")
+            }
 
            val DSLInstance = freek.DSL.Make[I]
            $mType
@@ -175,31 +201,10 @@ package object dsl {
            ..${objects.flatMap(o => implicitFunction(o))}
          }""")
 
-   // println(res)
+    //println(res)
     res
   }
 
   def merge(objects: Any*) = macro context_impl
 
-
-
-  //    def wrapIn(n: Int, w: String => String, s: String): String =
-  //      n match {
-  //        case 0 => s
-  //        case n => w(wrapIn(n - 1, w, s))
-  //      }
-  //
-  //    def cases(level: Int): List[String] =
-  //      (level to 0 by -1).toList flatMap { l =>
-  //
-  //        List(
-  //          wrapIn(l, w => s"Right($w)", "Left(x)"),
-  //          wrapIn(l, w => s"Right($w)", "Right(x)")
-  //        )
-  //      } map { w => s"case $w => x" }
-  //
-  //    def mutliEither(level: Int): String = wrapIn(level, w => s"Either[freedsl.dsl.DSLError, $w]", "T")
-  //
-  //    println(cases(objects.size))
-  //    println(mutliEither(objects.size))
 }
