@@ -28,6 +28,7 @@ object Random {
       case nextDouble() => Right(random.nextDouble)
       case nextInt(n) => Right(random.nextInt(n))
       case shuffle(s) => Right(random.shuffle(s))
+      case use(f) => Right(f(random))
     }
   }
 
@@ -39,4 +40,5 @@ object Random {
   def nextDouble: M[Double]
   def nextInt(n: Int): M[Int]
   def shuffle[A](s: Seq[A]): M[Seq[A]]
+  def use[T](f: util.Random => T): M[T]
 }
