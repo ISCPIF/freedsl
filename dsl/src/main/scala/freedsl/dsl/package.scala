@@ -162,7 +162,7 @@ package object dsl {
     def getError(level: Int) = {
       val name = TermName(s"error$level") //c.freshName("getError")
       def getter = (0 until level).foldLeft(q"Some(v)": Tree)((e,_) => q"$e.flatMap(_.right.toOption)": Tree)
-      q"def ${name}[T](v: $resType) = $getter.flatMap(_.left.toOption)"
+      q"def ${name}[T](v: $resType): Option[${objects(level)}.Error] = $getter.flatMap(_.left.toOption)"
     }
 
     def anyError(levels: Int) = {
@@ -188,7 +188,7 @@ package object dsl {
            ..${(0 until objects.size).map(i => getError(i))}
            ${anyError(objects.size)}
 
-           def result[T](t: $resType): Either[freedsl.dsl.DSLError, T] =
+           def result[T](t: $resType) =
             (value(t), error(t)) match {
               case (Some(v), _) => Right(v)
               case (None, Some(e)) => Left(e)

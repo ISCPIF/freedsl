@@ -105,6 +105,7 @@ object DSLTest extends App {
         case option() => Right(Some("cool"))
         case set(i) => Right(i)
         case param(a) => Right(a)
+        case fails() => Left(ItFailed("Boooo"))
       }
     }
 
@@ -118,6 +119,7 @@ object DSLTest extends App {
     def option: M[Option[String]]
     def set(i: Int): M[Int]
     def param[A](a: A): M[A]
+    def fails: M[Unit]
   }
 
   object DSLTest2M {
@@ -143,6 +145,7 @@ object DSLTest extends App {
       j <- dslTest1M.getSet
       k <- dslTest1M.get
       l <- dslTest2M.get
+      //_ <- dslTest1M.fails
       o <- dslTest1M.option
     } yield (i, j, k, l, o)
 
@@ -150,7 +153,11 @@ object DSLTest extends App {
   import c._
   val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
   val res = prg[M].value.interpret(interpreter)
-  println(result(res))
+
+  result(res) match {
+    case Right(v) => println(v)
+    case Left(e) => println("Error: " + e)
+  }
 
 }
 
