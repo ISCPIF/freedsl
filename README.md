@@ -50,7 +50,7 @@ import freedsl.util._
 import freedsl.log._
 import concurrent.duration._
 
-// Pure functions that descibe side effects
+// Pure functions that describe computations depending on side effects
 def randomData[M[_]](implicit randomM: Random[M]): M[Seq[Int]] =
   randomM.shuffle(Seq(1, 2, 2, 3, 3, 3))
 
