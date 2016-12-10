@@ -44,5 +44,7 @@ lazy val random = Project(id = "random", base = file("random")).settings(setting
 lazy val log = Project(id = "log", base = file("log")).settings(settings: _*) dependsOn(dsl)
 lazy val util = Project(id = "util", base = file("util")).settings(settings: _*) dependsOn(dsl)
 
+lazy val example = Project(id = "example", base = file("example")).settings(settings: _*) dependsOn(random, util, log)
+
 
 
