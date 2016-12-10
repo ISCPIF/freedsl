@@ -70,7 +70,7 @@ for {
 
 // Construct the interpreter for the program
 val interpreter =
-Util.interpreter :&:
+  Util.interpreter :&:
   Random.interpreter(42) :&:
   Log.interpreter
 
