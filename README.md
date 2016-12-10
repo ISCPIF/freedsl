@@ -42,30 +42,43 @@ import freek._
 import cats.implicits._
 import freedsl.random._
 import freedsl.util._
+import concurent.duration._
 
+// Pure functions that descibe side effects
+def randomData[M[_]](implicit randomM: Random[M]): M[Seq[Int]] = 
+  randomM.shuffle(Seq(1, 2, 2, 3, 3, 3))
+  
+def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M]): M[Unit] = for {
+  t <- randomM.nextDouble()
+  _ <- utilM.sleep((t * 10).toInt seconds)
+} yield ()
+
+// Construct an appropriate M along instance of typeclasses Random[M] and Util[M]
 val c = freedsl.dsl.merge(Random, Util)
 import c._
-
-def randomData[M[_]](implicit randomM: Random[M]) = randomM.shuffle(Seq(1, 2, 2, 3, 3, 3))
 
 val prg =
   for {
     a ← nextInt[M]()
-    _ ← implicitly[Util[M]].sleep(2 second)
+    _ ← randomSleep[M]
     b ← nextInt[M]()
   } yield s"""$a * $b  = ${a*b}"""
 
-
+// Construct the interpreter for the program
 val interpreter =
     Util.interpreter :&:
     Random.interpreter(42)
 
-println(result.getOption(prg.value.interpret(interpreter)))
+// All the side effects take place here in the interpreter
+result(prg.value.interpret(interpreter)) match {
+  case Right(v) => println(s"This is a success $v")
+  case Left(e) => println(s"OhOh, error: $e")
+}
 ```
 
 ## Getting FreeDSL
 
-Sortilege is published to [sonatype](https://oss.sonatype.org/).
+FreeDSL is published to [sonatype](https://oss.sonatype.org/).
 
 FreeDSL supports Scala 2.11 and 2.12. If you use SBT, you can
 include FreeDSL via the following `build.sbt` snippets:
