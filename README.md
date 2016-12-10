@@ -55,8 +55,7 @@ def randomData[M[_]](implicit randomM: Random[M]): M[Seq[Int]] =
   randomM.shuffle(Seq(1, 2, 2, 3, 3, 3))
 
 def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M], logM: Log[M]): M[Unit] = for {
-  t <- randomM.nextDouble
-  s = (t * 10).toInt
+  s <- randomM.nextInt(10)
   _ <- logM.print(s"Sleeping for $s seconds")
   _ <- utilM.sleep(s seconds)
 } yield ()
