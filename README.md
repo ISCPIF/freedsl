@@ -21,10 +21,13 @@ object Random {
       case nextDouble() => Right(random.nextDouble)
       case nextInt(n) => Right(random.nextInt(n))
       case shuffle(s) => Right(random.shuffle(s))
+      case fakeError() => Left(FakeError("for some reason there was an error"))
     }
   }
 
   def interpreter(seed: Long): Interpreter[Id] = interpreter(new util.Random(seed))
+  
+  case class FakeError(cause: String) extends Error
 
 }
 
@@ -32,6 +35,7 @@ object Random {
   def nextDouble: M[Double]
   def nextInt(n: Int): M[Int]
   def shuffle[A](s: Seq[A]): M[Seq[A]]
+  def fakeError: M[Unit]
 }
 ```
 
