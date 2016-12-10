@@ -154,6 +154,8 @@ object DSLTest extends App {
   val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
   val res = prg[M].value.interpret(interpreter)
 
+  test(prg[M], interpreter)
+
   result(res) match {
     case Right(v) => println(v)
     case Left(e) => println("Error: " + e)
