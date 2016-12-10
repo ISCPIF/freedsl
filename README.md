@@ -53,7 +53,7 @@ def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M]): M[Uni
   _ <- utilM.sleep((t * 10).toInt seconds)
 } yield ()
 
-// Construct an appropriate M along instance of typeclasses Random[M] and Util[M]
+// Construct an appropriate M along with implicit instances of Random[M] and Util[M]
 val c = freedsl.dsl.merge(Random, Util)
 import c._
 
