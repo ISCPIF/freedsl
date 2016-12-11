@@ -94,6 +94,12 @@ FreeDSL supports Scala 2.11 and 2.12. If you use SBT, you can
 include FreeDSL via the following `build.sbt` snippets:
 
 ```scala
+// Repository for Freek
+resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven")
+
+// For scala 2.12, for 2.11 use Miles Sabin's plugin for type unification.
+scalacOptions := Seq("-Ypartial-unification")
+
 def freedslVersion = "0.1"
 
 // pick a particular subproject
