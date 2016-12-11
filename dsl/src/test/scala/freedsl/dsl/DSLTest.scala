@@ -149,14 +149,12 @@ object DSLTest extends App {
       o <- dslTest1M.option
     } yield (i, j, k, l, o)
 
-  val c = merge(DSLTest1M, DSLTest2M)
-  import c._
   val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
-  val res = prg[M].value.interpret(interpreter)
 
-  test(prg[M], interpreter)
+  val context = merge(DSLTest1M, DSLTest2M)
+  import context._
 
-  result(res) match {
+  result(prg[M], interpreter) match {
     case Right(v) => println(v)
     case Left(e) => println("Error: " + e)
   }

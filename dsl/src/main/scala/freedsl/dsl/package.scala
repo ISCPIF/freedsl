@@ -116,7 +116,7 @@ package object dsl {
     def macroTransform(annottees: Any*): Any = macro dsl_impl
   }
 
-  def context_impl(c: Context)(objects: c.Expr[Any]*): c.Expr[Any] = {
+  def context_impl(c: Context)(objects: c.Expr[freedsl.dsl.DSLObject]*): c.Expr[Any] = {
     import c.universe._
 
     val I = objects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"freek.:|:[$o1, $o2]": Tree)
@@ -174,7 +174,7 @@ package object dsl {
 
 
     val res = c.Expr(
-      q"""new { self =>
+      q"""class Context { self =>
            import freek._
            import cats._
            import cats.implicits._
@@ -182,29 +182,41 @@ package object dsl {
            type I = $I
            type O = $O
 
+           val DSLInstance = freek.DSL.Make[I]
+
            def valueLens[T] = $resLens
-           def value[T](t: $resType) = valueLens.getOption(t)
+           def value[T](t: $resType): Option[T] = valueLens.getOption(t)
 
            ..${(0 until objects.size).map(i => getError(i))}
            ${anyError(objects.size)}
 
-           def result[T](t: $resType) =
+           $mType
+
+           import freek._
+           ..${objects.flatMap(o => implicitFunction(o))}
+
+           def unwrapResult[T](t: $resType) =
             (value(t), error(t)) match {
               case (Some(v), _) => Right(v)
               case (_, Some(e)) => Left(e)
               case (None, None) => sys.error("Result is either a value or an error")
             }
 
-           val DSLInstance = freek.DSL.Make[I]
-           $mType
-           import  freek._
-           ..${objects.flatMap(o => implicitFunction(o))}
-         }""")
+            // Don't exactly know why but it seem not possible to abstact over id
+            def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
+              val res = mt.value.interpret(interpreter)
+              implicitly[cats.Monad[Id]].map(res) { r => unwrapResult(r) }
+            }
+         }
+         new Context
+        """)
 
     //println(res)
     res
   }
 
-  def merge(objects: Any*) = macro context_impl
+  def merge(objects: freedsl.dsl.DSLObject*) = macro context_impl
+
+
 
 }
