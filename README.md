@@ -62,13 +62,6 @@ def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M], logM: 
 } yield ()
 
 
-
-// Construct the interpreter for the program
-val interpreter =
-  Util.interpreter :&:
-  Random.interpreter(42) :&:
-  Log.interpreter
-
 // Construct an appropriate M along with implicit instances of Random[M], Util[M] and Log[M]
 // they are build using the free monad and the freek library
 val context = merge(Random, Util, Log)
@@ -79,6 +72,12 @@ def prg =
     b ← randomData[M]
     _ ← randomSleep[M]
   } yield b
+  
+// Construct the interpreter for the program
+val interpreter =
+  Util.interpreter :&:
+  Random.interpreter(42) :&:
+  Log.interpreter
 
 // All the side effects take place here in the interpreter
 result(prg, interpreter) match {
