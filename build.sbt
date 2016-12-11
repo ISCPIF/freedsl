@@ -25,7 +25,7 @@ def settings = Seq (
   publishMavenStyle := true,
   publishArtifact in Test := false,
   pomIncludeRepository := { _ => false },
-  licenses := Seq("Affero GPLv3" -> url("http://www.gnu.org/licenses/")),
+  licenses := Seq("LGPL" -> url("http://www.gnu.org/licenses/")),
   homepage := Some(url("https://github.com/ISCPIF/freedsl")),
   scmInfo := Some(ScmInfo(url("https://github.com/ISCPIF/freedsl.git"), "scm:git:git@github.com:ISCPIF/freedsl.git")),
   pomExtra := (

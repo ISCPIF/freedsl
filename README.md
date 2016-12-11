@@ -94,7 +94,7 @@ FreeDSL supports Scala 2.11 and 2.12. If you use SBT, you can
 include FreeDSL via the following `build.sbt` snippets:
 
 ```scala
-def freedslVersion = "1.0-SNAPSHOT"
+def freedslVersion = "0.1"
 
 // pick a particular subproject
 libraryDependencies += "fr.iscpif.freedsl" %% "util" % freedslVersion,
