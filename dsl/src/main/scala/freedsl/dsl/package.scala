@@ -21,7 +21,7 @@ import scala.annotation.StaticAnnotation
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
-package object dsl {
+package object dsl extends cats.instances.AllInstances with cats.syntax.AllSyntax {
 
   trait DSLObject {
     type I[_]
