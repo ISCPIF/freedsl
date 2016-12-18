@@ -26,6 +26,26 @@ package object tool {
       loop
     }
 
+    def repeat(size: Int): M[Vector[A]] = {
+      type Rec = (List[A], Int)
+
+      def stop(a: List[A]): Either[Rec, List[A]] = Right(a)
+      def continue(a: List[A], size: Int): Either[Rec, List[A]] = Left((a, size))
+
+      def loop = Monad[M].tailRecM[Rec, List[A]]((List.empty, 0)) {
+        case (i, s) =>
+          val comp =
+            for {
+              a <- m
+              b = s < size
+            } yield (b, a)
+
+          comp.map { case (e, a) => (if (e) stop(a :: i) else continue(a :: i, s + 1)) }
+      }
+
+      loop.map(_.reverse.toVector)
+    }
+
   }
 
   def modifier[F[_] : Monad, T](get: F[T], set: T => F[Unit]) = new {
