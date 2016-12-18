@@ -126,7 +126,7 @@ package object dsl extends cats.instances.AllInstances with cats.syntax.AllSynta
 
     def implicitFunction(o: c.Expr[Any]) = {
       val typeClass = q"${o}".symbol.asModule.typeSignature.members.collect { case sym: TypeSymbol if sym.name == TypeName("TypeClass") => sym}.head
-      val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol ⇒ s }.toList
+      val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol if s.isAbstract && s.isPublic => s }.toList
 
       def generateFreekoImpl(m: MethodSymbol) = {
         val typeParams = m.typeParams.map(t => internal.typeDef(t))

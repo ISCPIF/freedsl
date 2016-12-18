@@ -1,6 +1,6 @@
 package freedsl.io
 
-import cats.Id
+import cats._
 import freedsl.dsl._
 
 
