@@ -22,9 +22,7 @@ package freedsl.dsl
 object PureFreek extends App {
 
   import cats._
-  import cats.data._
   import freek._
-  import cats.implicits._
 
   sealed trait Instruction[T]
   final case class Get() extends Instruction[Int]
@@ -59,7 +57,6 @@ object PureFreek2 extends App {
   import cats._
   import cats.data._
   import freek._
-  import cats.implicits._
 
   sealed trait Instruction[T]
   final case class Get() extends Instruction[Option[Int]]
