@@ -5,19 +5,24 @@ import cats.implicits._
 
 package object random {
 
-  def multinomial[M[_]: Monad, T](workingStats: List[(T, Double)])(implicit randomM: Random[M]) = {
-    lazy val all = workingStats
+  def multinomial[M[_]: Applicative, T](elements: Vector[(T, Double)])(implicit randomM: Random[M]) = {
     def roulette(weights: List[(T, Double)], selected: Double): M[T] =
       weights match {
-        case Nil => randomElement[M, (T, Double)](all.toVector).map(_._1)
+        case Nil => randomElement[M, (T, Double)](elements).map(_._1)
         case (i, p) :: t =>
           if (selected <= p) i.pure[M]
           else roulette(t, selected - p)
       }
-    randomM.nextDouble.map(d => roulette(workingStats, d))
+    randomM.nextDouble.map(d => roulette(elements.toList, d))
   }
 
-  def randomElement[M[_]: Monad, T](v: Vector[T])(implicit randomM: Random[M]) =
+  def randomElement[M[_]: Functor, T](v: Vector[T])(implicit randomM: Random[M]) =
     randomM.nextInt(v.size).map(v.apply)
+
+  implicit class RandomDecorator[M[_]](randomM: Random[M]) {
+    private implicit def implicitRandomM = randomM
+    def multinomial[T](v: Vector[(T, Double)])(implicit applicative: Applicative[M]) = random.multinomial[M, T](v)
+    def randomElement[T](v: Vector[T])(implicit functor: Functor[M]) = random.randomElement[M, T](v)
+  }
 
 }
