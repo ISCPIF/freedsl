@@ -176,7 +176,8 @@ package object dsl extends
 
 
     val res = c.Expr(
-      q"""class Context { self =>
+      q"""
+          class Context { self =>
            import freek._
            import cats._
            import cats.implicits._
@@ -185,17 +186,18 @@ package object dsl extends
            type O = $O
 
            val DSLInstance = freek.DSL.Make[I]
+           $mType
+
+           lazy val implicits = new {
+             import freek._
+             ..${objects.flatMap(o => implicitFunction(o))}
+           }
 
            def valueLens[T] = $resLens
            def value[T](t: $resType): Option[T] = valueLens.getOption(t)
 
            ..${(0 until objects.size).map(i => getError(i))}
            ${anyError(objects.size)}
-
-           $mType
-
-           import freek._
-           ..${objects.flatMap(o => implicitFunction(o))}
 
            def unwrapResult[T](t: $resType) =
             (value(t), error(t)) match {

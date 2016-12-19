@@ -65,12 +65,12 @@ def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M], logM: 
 // Construct an appropriate M along with implicit instances of Random[M], Util[M] and Log[M]
 // they are build using the free monad and the freek library
 val context = merge(Random, Util, Log)
-import context._
+import context.implicits._
 
 def prg =
   for {
-    b ← randomData[M]
-    _ ← randomSleep[M]
+    b ← randomData[context.M]
+    _ ← randomSleep[context.M]
   } yield b
   
 // Construct the interpreter for the program
@@ -80,7 +80,7 @@ val interpreter =
   Log.interpreter
 
 // All the side effects take place here in the interpreter
-result(prg, interpreter) match {
+context.result(prg, interpreter) match {
   case Right(v) => println(s"This is a success: $v")
   case Left(e) => println(s"OhOh, error: $e")
 }
@@ -100,7 +100,7 @@ resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven")
 // For scala 2.12, for 2.11 use Miles Sabin's plugin for type unification.
 scalacOptions := Seq("-Ypartial-unification")
 
-def freedslVersion = "0.1"
+def freedslVersion = "0.2-SNAPSHOT"
 
 // pick a particular subproject
 libraryDependencies += "fr.iscpif.freedsl" %% "util" % freedslVersion,
@@ -122,7 +122,7 @@ TODO
 ### Copyright and License
 
 All code is available to you under the LGPL license, available at
-http://opensource.org/licenses/mit-license.php and also in the
+https://www.gnu.org/licenses/lgpl.html and also in the
 [COPYING](COPYING) file.
 
 Copyright Romain Reuillon, 2016

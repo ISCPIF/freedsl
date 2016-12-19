@@ -149,9 +149,9 @@ object DSLTest extends App {
   val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
 
   val context = merge(DSLTest1M, DSLTest2M)
-  import context._
+  import context.implicits._
 
-  result(prg[M], interpreter) match {
+  context.result(prg[context.M], interpreter) match {
     case Right(v) => println(v)
     case Left(e) => println("Error: " + e)
   }
