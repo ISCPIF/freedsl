@@ -48,6 +48,28 @@ package object tool {
 
   }
 
+  implicit class KleisliDecorator[M[_]: Monad, A](m: Kleisli[M, A, A]) {
+    def until(end: Kleisli[M, A, Boolean]) = Kleisli { a: A => fold(a)(end) }
+
+    def fold(a: A)(end: Kleisli[M, A, Boolean]): M[A] = {
+      def stop(a: A): Either[A, A] = Right(a)
+      def continue(a: A): Either[A, A] = Left(a)
+
+      def loop = Monad[M].tailRecM[A, A](a) { a =>
+        val comp =
+          for {
+            ar <- m.run(a)
+            b <- end.run(ar)
+          } yield (b, ar)
+
+        comp.map { case (e, a) => (if (e) stop(a) else continue(a)) }
+      }
+
+      loop
+    }
+  }
+
+
   def modifier[F[_] : Monad, T](get: F[T], set: T => F[Unit]) = new {
     def modify(f: T => T) =
       for {
