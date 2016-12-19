@@ -27,6 +27,7 @@ object Random {
     def interpret[_] = {
       case nextDouble() => Right(random.nextDouble)
       case nextInt(n) => Right(random.nextInt(n))
+      case nextBoolean() => Right(random.nextBoolean())
       case shuffle(s) => Right(random.shuffle(s))
       case use(f) => Right(f(random))
     }
@@ -39,6 +40,7 @@ object Random {
 @dsl trait Random[M[_]] {
   def nextDouble: M[Double]
   def nextInt(n: Int): M[Int]
+  def nextBoolean: M[Boolean]
   def shuffle[A](s: Vector[A]): M[Vector[A]]
   def use[T](f: util.Random => T): M[T]
 }
