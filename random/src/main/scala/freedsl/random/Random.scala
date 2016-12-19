@@ -39,6 +39,6 @@ object Random {
 @dsl trait Random[M[_]] {
   def nextDouble: M[Double]
   def nextInt(n: Int): M[Int]
-  def shuffle[A](s: Seq[A]): M[Seq[A]]
+  def shuffle[A](s: Vector[A]): M[Vector[A]]
   def use[T](f: util.Random => T): M[T]
 }
