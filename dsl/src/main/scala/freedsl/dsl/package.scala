@@ -157,9 +157,6 @@ package object dsl extends
         }
       }
 
-      monocle.std.either.stdRight[Int, Either[Int, Int]] composePrism monocle.std.either.stdRight[Int, Int] composePrism monocle.Prism.id[Int]
-
-
       val res = c.Expr(
         q"""
           class Context { self =>

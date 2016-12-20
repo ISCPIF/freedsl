@@ -13,7 +13,6 @@ def settings = Seq (
   organization := "fr.iscpif.freedsl",
   resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven"),
   libraryDependencies += "com.projectseptember" %% "freek" % "0.6.6",
-  libraryDependencies += "com.github.julien-truffaut"  %%  "monocle-core" % "1.3.2",
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"),
