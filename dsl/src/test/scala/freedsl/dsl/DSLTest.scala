@@ -127,16 +127,19 @@ object DSLTest extends App {
     }
   }
 
-  @dsl trait DSLTest2M[M[_]] {
-    def get: M[String]
+  trait AbstractDSL2[M[_], S] {
+    def get: M[S]
   }
 
+  @dsl trait DSLTest2M[M[_]] extends AbstractDSL2[M, String] {
+    def get: M[String]
+  }
 
   import cats._
   import cats.implicits._
   import freek._
 
-  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M]) =
+  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: AbstractDSL2[M, String]) =
     for {
       i <- dslTest1M.get
       j <- dslTest1M.getSet

@@ -24,7 +24,6 @@ import scala.reflect.macros.whitebox.Context
 package object dsl extends
   cats.instances.AllInstances {
 
-
   trait DSLObject {
     type I[_]
     type O[_]
@@ -109,7 +108,7 @@ package object dsl extends
     annottees.map(_.tree) match {
       case (typeClass: ClassDef) :: Nil => check(typeClass) getOrElse modify(typeClass, None)
       case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil => check(typeClass) getOrElse modify(typeClass, Some(companion))
-      case other :: Nil =>applicationConditionError
+      case other :: Nil => applicationConditionError
     }
 
   }
@@ -119,41 +118,50 @@ package object dsl extends
   }
 
   def context_impl(c: Context)(objects: c.Expr[freedsl.dsl.DSLObject]*): c.Expr[Any] = {
-    import c.universe._
+    val duplicated = objects.map(_.actualType).groupBy(x => x).toVector.filter(_._2.size > 1)
 
-    val I = objects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"freek.:|:[$o1, $o2]": Tree)
+    if (!duplicated.isEmpty) {
+      c.abort(
+        c.enclosingPosition,
+        s"object(s) appears more than once in the merge: ${duplicated.map(_._1).mkString(", ")}"
+      )
+    } else {
+      import c.universe._
 
-    val mType = q"type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]"
+      val I = objects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"freek.:|:[$o1, $o2]": Tree)
 
-    def implicitFunction(o: c.Expr[Any]) = {
-      val typeClass = q"${o}".symbol.asModule.typeSignature.members.collect { case sym: TypeSymbol if sym.name == TypeName("TypeClass") => sym}.head
-      val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol if s.isAbstract && s.isPublic => s }.toList
+      val mType = q"type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]"
 
-      def generateFreekoImpl(m: MethodSymbol) = {
-        val typeParams = m.typeParams.map(t => internal.typeDef(t))
-        val paramss = m.paramLists.map(_.map(p => internal.valDef(p)))
-        val returns = TypeTree(m.returnType)
-        val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
+      def implicitFunction(o: c.Expr[Any]) = {
+        val typeClass = q"${o}".symbol.asModule.typeSignature.members.collect { case sym: TypeSymbol if sym.name == TypeName("TypeClass") => sym }.head
+        val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol if s.isAbstract && s.isPublic => s }.toList
 
-        q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${m.name}(..${paramValues}).freek[I].onionX1[O] }"
-      }
+        def generateFreekoImpl(m: MethodSymbol) = {
+          val typeParams = m.typeParams.map(t => internal.typeDef(t))
+          val paramss = m.paramLists.map(_.map(p => internal.valDef(p)))
+          val returns = TypeTree(m.returnType)
+          val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
 
-      val implem = q"""{
+          q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${m.name}(..${paramValues}).freek[I].onionX1[O] }"
+        }
+
+        val implem =
+          q"""{
         new ${o}.TypeClass[M] {
             ..${funcs.map(f => generateFreekoImpl(f))}
           }
         }"""
-      typeClass.typeParams.size match {
-        case 1 => Some (q"implicit def ${TermName (c.freshName ("impl") )} = $implem")
-        case 0 => None
+        typeClass.typeParams.size match {
+          case 1 => Some(q"implicit def ${TermName(c.freshName("impl"))} = $implem")
+          case 0 => None
+        }
       }
-    }
 
-    monocle.std.either.stdRight[Int, Either[Int, Int]] composePrism monocle.std.either.stdRight[Int, Int] composePrism monocle.Prism.id[Int]
+      monocle.std.either.stdRight[Int, Either[Int, Int]] composePrism monocle.std.either.stdRight[Int, Int] composePrism monocle.Prism.id[Int]
 
 
-    val res = c.Expr(
-      q"""
+      val res = c.Expr(
+        q"""
           class Context { self =>
            import freek._
            import cats._
@@ -179,8 +187,9 @@ package object dsl extends
          new Context
         """)
 
-    //println(res)
-    res
+      //println(res)
+      res
+    }
   }
 
   def merge(objects: freedsl.dsl.DSLObject*) = macro context_impl
