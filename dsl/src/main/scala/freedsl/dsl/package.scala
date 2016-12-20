@@ -30,7 +30,7 @@ package object dsl extends
     type O[_]
   }
 
-  trait DSLError
+  trait Error
 
   def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
     import c.universe._
@@ -58,7 +58,7 @@ package object dsl extends
 
       val caseClasses = funcs.map(c => generateCaseClass(c))
       val dslObjectType = weakTypeOf[DSLObject]
-      val dslErrorType = weakTypeOf[DSLError]
+      val dslErrorType = weakTypeOf[freedsl.dsl.Error]
 
       val modifiedCompanion = q"""
         $mods object $name extends ..$bases with $dslObjectType {
@@ -69,10 +69,10 @@ package object dsl extends
            sealed trait ${instructionName}[T]
            ..${caseClasses}
 
-           sealed trait Error extends $dslErrorType
+           type Error = $dslErrorType
 
-           type O[T] = Either[Error, T]
            type I[T] = ${instructionName}[T]
+           type O[T] = Either[Error, T]
 
            trait Interpreter[T[_]] extends cats.~>[I, T] {
              def interpret[A]: (I[A] => T[A])
@@ -122,7 +122,6 @@ package object dsl extends
     import c.universe._
 
     val I = objects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"freek.:|:[$o1, $o2]": Tree)
-    val O = objects.map(o => tq"${o}.O").foldRight(tq"freek.Bulb": Tree)((o1, o2) => tq"freek.:&:[$o1, $o2]": Tree)
 
     val mType = q"type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]"
 
@@ -152,28 +151,6 @@ package object dsl extends
 
     monocle.std.either.stdRight[Int, Either[Int, Int]] composePrism monocle.std.either.stdRight[Int, Int] composePrism monocle.Prism.id[Int]
 
-    //   val resType = objects.foldRight(tq"T": Tree) { (o1, c) => tq"Either[${o1}.Error,$c]": Tree }
-
-    val (resType, resLens) = objects.foldRight((tq"T": Tree, q"monocle.Prism.id[T]": Tree)) {
-      case (o1, (t, c)) =>
-        val curType = tq"Either[${o1}.Error,$t]"
-        (curType: Tree, q"monocle.std.either.stdRight[${o1}.Error, $t] composePrism $c")
-    }
-
-
-    def getError(level: Int) = {
-      val name = TermName(s"error$level") //c.freshName("getError")
-      def getter = (0 until level).foldLeft(q"Some(v)": Tree)((e,_) => q"$e.flatMap(_.right.toOption)": Tree)
-      q"def ${name}[T](v: $resType): Option[${objects(level)}.Error] = $getter.flatMap(_.left.toOption)"
-    }
-
-    def anyError(levels: Int) = {
-      def errors =
-        (0 until levels).foldLeft(q"None": Tree)((e, i) => q"$e orElse ${TermName(s"error$i")}(v)")
-
-      q"def error[T](v: $resType) = $errors"
-    }
-
 
     val res = c.Expr(
       q"""
@@ -183,7 +160,8 @@ package object dsl extends
            import cats.implicits._
 
            type I = $I
-           type O = $O
+           type OL[T] = Either[freedsl.dsl.Error, T]
+           type O = OL :&: Bulb
 
            val DSLInstance = freek.DSL.Make[I]
            $mType
@@ -193,24 +171,10 @@ package object dsl extends
              ..${objects.flatMap(o => implicitFunction(o))}
            }
 
-           def valueLens[T] = $resLens
-           def value[T](t: $resType): Option[T] = valueLens.getOption(t)
-
-           ..${(0 until objects.size).map(i => getError(i))}
-           ${anyError(objects.size)}
-
-           def unwrapResult[T](t: $resType) =
-            (value(t), error(t)) match {
-              case (Some(v), _) => Right(v)
-              case (_, Some(e)) => Left(e)
-              case (None, None) => sys.error("Result is either a value or an error")
-            }
-
-            // Don't exactly know why but it seem not possible to abstact over id
-            def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
-              val res = mt.value.interpret(interpreter)
-              implicitly[cats.Monad[Id]].map(res) { r => unwrapResult(r) }
-            }
+           // Don't exactly know why but it seem not possible to abstact over id
+           def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
+             mt.value.interpret(interpreter)
+           }
          }
          new Context
         """)
