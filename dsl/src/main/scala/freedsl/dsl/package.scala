@@ -123,7 +123,7 @@ package object dsl extends
     if (!duplicated.isEmpty) {
       c.abort(
         c.enclosingPosition,
-        s"object(s) appears more than once in the merge: ${duplicated.map(_._1).mkString(", ")}"
+        s"DSL object(s) appear(s) more than once in the merge: ${duplicated.map(_._1).mkString(", ")}"
       )
     } else {
       import c.universe._
