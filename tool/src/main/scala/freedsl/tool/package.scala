@@ -32,18 +32,12 @@ package object tool {
       def stop(a: List[A]): Either[Rec, List[A]] = Right(a)
       def continue(a: List[A], size: Int): Either[Rec, List[A]] = Left((a, size))
 
-      def loop = Monad[M].tailRecM[Rec, List[A]]((List.empty, 0)) {
-        case (i, s) =>
-          val comp =
-            for {
-              a <- m
-              b = s < size
-            } yield (b, a)
-
-          comp.map { case (e, a) => (if (e) stop(a :: i) else continue(a :: i, s + 1)) }
+      def loop = Monad[M].tailRecM[Rec, List[A]]((List.empty, 0)) { case (list, s) =>
+        if(s < size) m.map(a => continue(a :: list, s + 1))
+        else stop(list).pure[M]
       }
 
-      loop.map(_.reverse.toVector)
+      loop.map { _.reverse.toVector }
     }
 
   }
