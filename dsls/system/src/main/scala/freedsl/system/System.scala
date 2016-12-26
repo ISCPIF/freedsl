@@ -1,11 +1,11 @@
-package freedsl.util
+package freedsl.system
 
 import cats._
 import freedsl.dsl._
 import java.util.UUID
 import squants._
 
-object Util {
+object System {
 
   def interpreter = new Interpreter[Id] {
     def interpret[_] = {
@@ -16,7 +16,7 @@ object Util {
 
 }
 
-@dsl trait Util[M[_]] {
+@dsl trait System[M[_]] {
   def randomUUID: M[UUID]
   def sleep(duration: Time): M[Unit]
 }

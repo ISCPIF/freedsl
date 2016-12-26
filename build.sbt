@@ -1,5 +1,5 @@
 
-def modules = Seq(dsl, random, log, util, io, tool)
+def modules = Seq(dsl, random, log, system, io, tool)
 
 lazy val root =
   Project(id = "all", base = file(".")).settings(settings: _*).
@@ -41,13 +41,15 @@ def settings = Seq (
 
 
 lazy val dsl = Project(id = "dsl", base = file("dsl")).settings(settings: _*)
-lazy val random = Project(id = "random", base = file("random")).settings(settings: _*) dependsOn(dsl)
-lazy val log = Project(id = "log", base = file("log")).settings(settings: _*) dependsOn(dsl)
-lazy val util = Project(id = "util", base = file("util")).settings(settings: _*) dependsOn(dsl)
-lazy val io = Project(id = "io", base = file("io")).settings(settings: _*) dependsOn(dsl)
+
+lazy val random = Project(id = "random", base = file("dsls/random")).settings(settings: _*) dependsOn(dsl)
+lazy val log = Project(id = "log", base = file("dsls/log")).settings(settings: _*) dependsOn(dsl)
+lazy val system = Project(id = "system", base = file("dsls/system")).settings(settings: _*) dependsOn(dsl)
+lazy val io = Project(id = "io", base = file("dsls/io")).settings(settings: _*) dependsOn(dsl)
+
 lazy val tool = Project(id = "tool", base = file("tool")).settings(settings: _*)
 
-lazy val example = Project(id = "example", base = file("example")).settings(settings: _*) dependsOn(random, util, log)
+lazy val example = Project(id = "example", base = file("example")).settings(settings: _*) dependsOn(random, system, log)
 
 
 

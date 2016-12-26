@@ -5,7 +5,7 @@ object DSLExample extends App {
   import cats._
   import cats.implicits._
   import freedsl.random._
-  import freedsl.util._
+  import freedsl.system._
   import freedsl.log._
   import concurrent.duration._
 
@@ -13,7 +13,7 @@ object DSLExample extends App {
   def randomData[M[_]](implicit randomM: Random[M]): M[Seq[Int]] =
     randomM.shuffle(Seq(1, 2, 2, 3, 3, 3))
 
-  def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M], logM: Log[M]): M[Unit] = for {
+  def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: System[M], logM: Log[M]): M[Unit] = for {
     t <- randomM.nextDouble
     s = (t * 10).toInt
     _ <- logM.print(s"Sleeping for $s seconds")
@@ -22,7 +22,7 @@ object DSLExample extends App {
 
   // Construct an appropriate M along with implicit instances of Random[M], Util[M] and Log[M]
   // they are build using the free monad and the freek library
-  val c = freedsl.dsl.merge(Random, Util, Log)
+  val c = freedsl.dsl.merge(Random, System, Log)
   import c._
 
   val prg =
@@ -33,7 +33,7 @@ object DSLExample extends App {
 
   // Construct the interpreter for the program
   val interpreter =
-    Util.interpreter :&:
+    System.interpreter :&:
       Random.interpreter(42) :&:
       Log.interpreter
 
