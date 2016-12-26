@@ -3,14 +3,14 @@ package freedsl.util
 import cats._
 import freedsl.dsl._
 import java.util.UUID
-import scala.concurrent.duration._
+import squants._
 
 object Util {
 
   def interpreter = new Interpreter[Id] {
     def interpret[_] = {
       case randomUUID() => Right(UUID.randomUUID())
-      case sleep(d) => Right(Thread.sleep(d.toMillis))
+      case sleep(d) => Right(Thread.sleep(d.millis))
     }
   }
 
@@ -18,5 +18,5 @@ object Util {
 
 @dsl trait Util[M[_]] {
   def randomUUID: M[UUID]
-  def sleep(duration: Duration): M[Unit]
+  def sleep(duration: Time): M[Unit]
 }

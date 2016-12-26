@@ -14,6 +14,7 @@ def settings = Seq (
   resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven"),
   libraryDependencies += "com.projectseptember" %% "freek" % "0.6.6",
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+  libraryDependencies += "org.typelevel"  %% "squants"  % "1.0.0",
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"),
   libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test",
