@@ -36,17 +36,17 @@ package object dsl extends
 
     def generateCompanion(clazz: ClassDef, comp: Tree) = {
       val instructionName = TypeName(c.freshName("Instruction"))
+
       val q"$mods object $name extends ..$bases { ..$body }" = comp
+      val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = clazz
 
-      def collect(t: List[Tree]): List[DefDef] =
-        t.collect {
-          case m: DefDef
-            if !m.mods.hasFlag(Flag.PRIVATE) &&
-              !m.mods.hasFlag(Flag.PROTECTED) &&
-              m.mods.hasFlag(Flag.DEFERRED) => m
-        }
+      def abstractMethod(m: DefDef) =
+        !m.mods.hasFlag(Flag.PRIVATE) &&
+          !m.mods.hasFlag(Flag.PROTECTED) &&
+          m.mods.hasFlag(Flag.DEFERRED)
 
-      val funcs = collect(clazz.impl.children)
+      def collect(t: cstats.type) =
+        t.collect { case m: DefDef if abstractMethod(m) => m }
 
       def opTerm(func: DefDef) = func.name.toString
 
@@ -55,7 +55,7 @@ package object dsl extends
         q"case class ${TypeName(opTerm(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[Error, ${func.tpt.children.drop(1).head}]]"
       }
 
-      val caseClasses = funcs.map(c => generateCaseClass(c))
+      val caseClasses = collect(cstats).map(c => generateCaseClass(c))
       val dslObjectType = weakTypeOf[DSLObject]
       val dslErrorType = weakTypeOf[freedsl.dsl.Error]
 

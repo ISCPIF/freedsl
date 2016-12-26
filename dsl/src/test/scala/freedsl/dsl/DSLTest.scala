@@ -117,6 +117,7 @@ object DSLTest extends App {
     def set(i: Int): M[Int]
     def param[A](a: A): M[A]
     def fails: M[Unit]
+    def concreteMethod = 9
   }
 
   object DSLTest2M {
