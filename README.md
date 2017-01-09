@@ -42,14 +42,14 @@ object Random {
 ### Using your new DSL
 
 ```scala
-import freek._
 import cats._
 import cats.implicits._
 import freedsl._
 import freedsl.random._
 import freedsl.util._
 import freedsl.log._
-import concurrent.duration._
+
+import squants.time.TimeConversions._
 
 // Pure functions that describe computations depending on side effects
 def randomData[M[_]](implicit randomM: Random[M]): M[Seq[Int]] =
@@ -62,25 +62,21 @@ def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M], logM: 
 } yield ()
 
 
-// Construct an appropriate M along with implicit instances of Random[M], Util[M] and Log[M]
+// Construct the interpreter and a type M along with implicit instances of Random[M], Util[M] and Log[M]
 // they are build using the free monad and the freek library
-val context = merge(Random, Util, Log)
-import context.implicits._
+
+val interpreter = merge(Util.interpreter, Random.interpreter(42), Log.interpreter)
+import interpreter.implicits._
 
 def prg =
   for {
-    b ← randomData[context.M]
-    _ ← randomSleep[context.M]
+    b ← randomData[interpreter.M]
+    _ ← randomSleep[interpreter.M]
   } yield b
   
-// Construct the interpreter for the program
-val interpreter =
-  Util.interpreter :&:
-  Random.interpreter(42) :&:
-  Log.interpreter
 
 // All the side effects take place here in the interpreter
-context.result(prg, interpreter) match {
+interpreter.run(prg) match {
   case Right(v) => println(s"This is a success: $v")
   case Left(e) => println(s"OhOh, error: $e")
 }
@@ -100,7 +96,7 @@ resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven")
 // For scala 2.12, for 2.11 use Miles Sabin's plugin for type unification.
 scalacOptions := Seq("-Ypartial-unification")
 
-def freedslVersion = "0.3"
+def freedslVersion = "0.4-SNAPSHOT"
 
 // pick a particular subproject
 libraryDependencies += "fr.iscpif.freedsl" %% "util" % freedslVersion,

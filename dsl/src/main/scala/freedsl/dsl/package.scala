@@ -31,6 +31,8 @@ package object dsl extends
 
   trait Error
 
+  trait DSLInterpreter
+
   def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
     import c.universe._
 
@@ -58,9 +60,10 @@ package object dsl extends
       val caseClasses = collect(cstats).map(c => generateCaseClass(c))
       val dslObjectType = weakTypeOf[DSLObject]
       val dslErrorType = weakTypeOf[freedsl.dsl.Error]
+      val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
 
       val modifiedCompanion = q"""
-        $mods object $name extends ..$bases with $dslObjectType {
+        $mods object $name extends ..$bases with $dslObjectType { comp =>
            import cats._
 
            type TypeClass[..${clazz.tparams}] = ${clazz.name}[..${clazz.tparams.map(_.name)}]
@@ -73,7 +76,8 @@ package object dsl extends
            type I[T] = ${instructionName}[T]
            type O[T] = Either[Error, T]
 
-           trait Interpreter[T[_]] extends cats.~>[I, T] {
+           trait Interpreter[T[_]] extends cats.~>[I, T] with $dslInterpreterType {
+             val companion = comp
              def interpret[A]: (I[A] => T[A])
              def apply[A](f: I[A]) = interpret[A](f)
            }
@@ -133,7 +137,14 @@ package object dsl extends
       val mType = q"type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]"
 
       def implicitFunction(o: c.Expr[Any]) = {
-        val typeClass = q"${o}".symbol.asModule.typeSignature.members.collect { case sym: TypeSymbol if sym.name == TypeName("TypeClass") => sym }.head
+        val typeClass = {
+          def symbol = q"${o}".symbol
+          def members =
+            if(symbol.isModule) symbol.asModule.typeSignature.members
+            else symbol.typeSignature.members
+
+          members.collect { case sym: TypeSymbol if sym.name == TypeName("TypeClass") => sym }.head
+        }
         val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol if s.isAbstract && s.isPublic => s }.toList
 
         def generateFreekoImpl(m: MethodSymbol) = {
@@ -176,7 +187,7 @@ package object dsl extends
              ..${objects.flatMap(o => implicitFunction(o))}
            }
 
-           // Don't exactly know why but it seem not possible to abstact over id
+           // Don't exactly know why but it seem not possible to abstract over Id
            def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
              mt.value.interpret(interpreter)
            }
@@ -190,6 +201,43 @@ package object dsl extends
   }
 
   def merge(objects: freedsl.dsl.DSLObject*) = macro context_impl
+
+  def mergeInterpreters_impl(c: Context)(objects: c.Expr[freedsl.dsl.DSLInterpreter]*): c.Expr[Any] = {
+    import c.universe._
+
+    val mergedInterpreters = objects.map(x => x.tree).reduce((o1, o2) => q"$o1 :&: $o2": Tree)
+
+    val stableTerms = (objects.zipWithIndex).map { case (o, i) => TermName(s"o$i") }
+    val stableIdentifiers = (objects zip stableTerms).map { case (o, t) =>
+      q"val $t = $o"
+    }
+
+    val companions = stableTerms.map( t => q"$t.companion")
+    //val companions = (objects).map(o => q"..${o.tree.children}")
+
+    val res =
+      q"""
+      import scala.language.experimental.macros
+      import freek._
+
+      class InterpretationContext {
+        ..$stableIdentifiers
+
+        val merged = freedsl.dsl.merge(..$companions)
+        type M[T] = merged.M[T]
+
+        val intp = $mergedInterpreters
+        lazy val implicits = merged.implicits
+
+        def run[T](program: M[T]) = merged.result(program, intp)
+      }
+
+      new InterpretationContext()"""
+
+    c.Expr(res)
+  }
+
+  def merge(objects: freedsl.dsl.DSLInterpreter*) = macro mergeInterpreters_impl
 
 
 

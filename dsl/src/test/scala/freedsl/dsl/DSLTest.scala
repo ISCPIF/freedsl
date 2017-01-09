@@ -138,7 +138,6 @@ object DSLTest extends App {
 
   import cats._
   import cats.implicits._
-  import freek._
 
   def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: AbstractDSL2[M, String]) =
     for {
@@ -146,16 +145,14 @@ object DSLTest extends App {
       j <- dslTest1M.getSet
       k <- dslTest1M.get
       l <- dslTest2M.get
-      //_ <- dslTest1M.fails
+      // _ <- dslTest1M.fails
       o <- dslTest1M.option
     } yield (i, j, k, l, o)
 
-  val interpreter = DSLTest1M.interpreter :&: DSLTest2M.interpreter
+  val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)
+  import intp.implicits._
 
-  val context = merge(DSLTest1M, DSLTest2M)
-  import context.implicits._
-
-  context.result(prg[context.M], interpreter) match {
+  intp.run(prg[intp.M]) match {
     case Right(v) => println(v)
     case Left(e) => println("Error: " + e)
   }
