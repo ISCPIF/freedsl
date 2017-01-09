@@ -96,7 +96,7 @@ resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven")
 // For scala 2.12, for 2.11 use Miles Sabin's plugin for type unification.
 scalacOptions := Seq("-Ypartial-unification")
 
-def freedslVersion = "0.4-SNAPSHOT"
+def freedslVersion = "0.4"
 
 // pick a particular subproject
 libraryDependencies += "fr.iscpif.freedsl" %% "util" % freedslVersion,
