@@ -136,6 +136,19 @@ object DSLTest extends App {
     def get: M[String]
   }
 
+
+  object DSLTest3M {
+    def interpreter = new Interpreter[Id] {
+      def interpret[_] = {
+        case test() => Right(())
+      }
+    }
+  }
+
+  @dsl trait DSLTest3M[M[_]] {
+    def test: M[Unit]
+  }
+
   import cats._
   import cats.implicits._
 
@@ -149,7 +162,7 @@ object DSLTest extends App {
       o <- dslTest1M.option
     } yield (i, j, k, l, o)
 
-  val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)
+  val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
   import intp.implicits._
 
   intp.run(prg[intp.M]) match {

@@ -208,8 +208,8 @@ package object dsl extends
   def mergeInterpreters_impl(c: Context)(objects: c.Expr[freedsl.dsl.DSLInterpreter]*): c.Expr[Any] = {
     import c.universe._
 
-    val mergedInterpreters = objects.map(x => x.tree).reduce((o1, o2) => q"$o1 :&: $o2": Tree)
-
+    val mergedInterpreters = objects.map(x => x.tree).reduceRight((o1, o2) => q"$o1 :&: $o2": Tree)
+    
     val stableTerms = (objects.zipWithIndex).map { case (o, i) => TermName(s"o$i") }
     val stableIdentifiers = (objects zip stableTerms).map { case (o, t) =>
       q"val $t = $o"
