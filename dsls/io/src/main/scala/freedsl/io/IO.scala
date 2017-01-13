@@ -11,13 +11,12 @@ object IO {
       case run(f) => util.Try(f()).toEither.leftMap(t => IOException(t))
       case exception(t) => Left(IOException(t))
       case exceptionOrResult(e) => e.leftMap(t => IOException(t))
-      case errorMessage(m) => Left(IOError(m))
-      case errorMessageOrResult(e) => e.leftMap(m => IOError(m))
+      case errorMessage(m) => Left(IOException(new RuntimeException(m)))
+      case errorMessageOrResult(e) => e.leftMap(m => IOException(new RuntimeException(m)))
     }
   }
 
   case class IOException(t: Throwable) extends Error
-  case class IOError(message: String) extends Error
 
 }
 
