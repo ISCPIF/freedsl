@@ -188,9 +188,12 @@ package object dsl extends
            }
 
            // Don't exactly know why but it seem not possible to abstract over Id
-           def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
+           def run[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
              mt.value.interpret(interpreter)
            }
+
+           @deprecated("use run")
+           def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = run(mt, interpreter)
          }
          new Context
         """)
@@ -229,7 +232,7 @@ package object dsl extends
         val intp = $mergedInterpreters
         lazy val implicits = merged.implicits
 
-        def run[T](program: M[T]) = merged.result(program, intp)
+        def run[T](program: M[T]) = merged.run(program, intp)
       }
 
       new InterpretationContext()"""
