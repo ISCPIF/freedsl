@@ -29,8 +29,9 @@ package object dsl extends
     type O[_]
   }
 
-  trait Error
+  trait MergedDSLObject
 
+  trait Error
   trait DSLInterpreter
 
   def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
@@ -122,7 +123,7 @@ package object dsl extends
   }
 
   def context_impl(c: Context)(objects: c.Expr[freedsl.dsl.DSLObject]*): c.Expr[Any] = {
-    val duplicated = objects.map(_.actualType).groupBy(x => x).toVector.filter(_._2.size > 1)
+    val duplicated = objects.map(_.tree.symbol.typeSignature.finalResultType).groupBy(x => x).toVector.filter(_._2.size > 1)
 
     if (!duplicated.isEmpty) {
       c.abort(
@@ -139,6 +140,7 @@ package object dsl extends
       def implicitFunction(o: c.Expr[Any]) = {
         val typeClass = {
           def symbol = q"${o}".symbol
+
           def members =
             if(symbol.isModule) symbol.asModule.typeSignature.members
             else symbol.typeSignature.members
@@ -158,42 +160,46 @@ package object dsl extends
 
         val implem =
           q"""{
-        new ${o}.TypeClass[M] {
-            ..${funcs.map(f => generateFreekoImpl(f))}
-          }
-        }"""
+            new ${o}.TypeClass[M] {
+              ..${funcs.map(f => generateFreekoImpl(f))}
+            }
+          }"""
         typeClass.typeParams.size match {
           case 1 => Some(q"implicit def ${TermName(c.freshName("impl"))} = $implem")
           case 0 => None
         }
       }
 
+      def mergedObjects = objects.map(o => q"val ${TermName(c.freshName())} = $o")
+
       val res = c.Expr(
         q"""
-          class Context { self =>
-           import freek._
-           import cats._
-           import cats.implicits._
+          class Context extends freedsl.dsl.MergedDSLObject { self =>
+            ..$mergedObjects
 
-           type I = $I
-           type OL[T] = Either[freedsl.dsl.Error, T]
-           type O = OL :&: Bulb
+            import freek._
+            import cats._
+            import cats.implicits._
 
-           val DSLInstance = freek.DSL.Make[I]
-           $mType
+            type I = $I
+            type OL[T] = Either[freedsl.dsl.Error, T]
+            type O = OL :&: Bulb
 
-           lazy val implicits = new {
-             import freek._
-             ..${objects.flatMap(o => implicitFunction(o))}
-           }
+            val DSLInstance = freek.DSL.Make[I]
+            $mType
 
-           // Don't exactly know why but it seem not possible to abstract over Id
-           def run[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
-             mt.value.interpret(interpreter)
-           }
+            lazy val implicits = new {
+              import freek._
+              ..${objects.flatMap(o => implicitFunction(o))}
+            }
 
-           @deprecated("use run")
-           def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = run(mt, interpreter)
+            // Don't exactly know why but it seem not possible to abstract over Id
+            def run[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
+              mt.value.interpret(interpreter)
+            }
+
+            @deprecated("use run")
+            def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = run(mt, interpreter)
          }
          new Context
         """)
@@ -203,20 +209,20 @@ package object dsl extends
     }
   }
 
+
   def merge(objects: freedsl.dsl.DSLObject*) = macro context_impl
 
   def mergeInterpreters_impl(c: Context)(objects: c.Expr[freedsl.dsl.DSLInterpreter]*): c.Expr[Any] = {
     import c.universe._
 
     val mergedInterpreters = objects.map(x => x.tree).reduceRight((o1, o2) => q"$o1 :&: $o2": Tree)
-    
+
     val stableTerms = (objects.zipWithIndex).map { case (o, i) => TermName(s"o$i") }
     val stableIdentifiers = (objects zip stableTerms).map { case (o, t) =>
       q"val $t = $o"
     }
 
     val companions = stableTerms.map( t => q"$t.companion")
-    //val companions = (objects).map(o => q"..${o.tree.children}")
 
     val res =
       q"""
@@ -241,6 +247,25 @@ package object dsl extends
   }
 
   def merge(objects: freedsl.dsl.DSLInterpreter*) = macro mergeInterpreters_impl
+
+  def mergeMergedObjects_impl(c: Context)(objects: c.Expr[freedsl.dsl.MergedDSLObject]*): c.Expr[Any] = {
+    import c.universe._
+    val dslObjectType = weakTypeOf[DSLObject]
+
+    def objectValues = objects.flatMap { o =>
+      o.actualType.members.filter(_.typeSignature.finalResultType <:< dslObjectType).map(res =>  q"$o.$res")
+    }
+
+    def distinctObjects = objectValues.map {
+      o => o.symbol.typeSignature -> o
+    }.toMap.values.toVector
+
+    val exprs = distinctObjects.map(o => c.Expr[freedsl.dsl.DSLObject](o))
+
+    context_impl(c)(exprs: _*)
+  }
+
+  def merge(objects: freedsl.dsl.MergedDSLObject*) = macro mergeMergedObjects_impl
 
 
 

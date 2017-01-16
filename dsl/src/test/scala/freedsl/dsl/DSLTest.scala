@@ -172,3 +172,28 @@ object DSLTest extends App {
 
 }
 
+object MultiLevelMerge extends App {
+  import cats._
+
+  @dsl trait DSLTest1M[M[_]] {
+    def get: M[String]
+  }
+
+  @dsl trait DSLTest2M[M[_]] {
+    def get: M[String]
+  }
+
+  @dsl trait DSLTest3M[M[_]] {
+    def get: M[String]
+  }
+
+  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = ()
+
+  val merged1 = merge(DSLTest1M, DSLTest2M)
+  val merged2 = merge(DSLTest2M, DSLTest3M)
+  val merged3 = merge(merged1, merged2)
+
+  import merged3.implicits._
+
+  prg[merged3.M]
+}
