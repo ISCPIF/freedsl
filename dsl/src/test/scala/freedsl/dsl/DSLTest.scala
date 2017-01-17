@@ -174,6 +174,31 @@ object DSLTest extends App {
 
 object MultiLevelMerge extends App {
   import cats._
+  import freek._
+
+  object DSLTest1M {
+    def interpreter = new Interpreter[Id] {
+      def interpret[_] = {
+        case get() => Right("dsl1 is nice")
+      }
+    }
+  }
+
+  object DSLTest2M {
+    def interpreter = new Interpreter[Id] {
+      def interpret[_] = {
+        case get() => Right("dsl2 is nice")
+      }
+    }
+  }
+
+  object DSLTest3M {
+    def interpreter = new Interpreter[Id] {
+      def interpret[_] = {
+        case get() => Right("dsl3 is nice")
+      }
+    }
+  }
 
   @dsl trait DSLTest1M[M[_]] {
     def get: M[String]
@@ -187,7 +212,7 @@ object MultiLevelMerge extends App {
     def get: M[String]
   }
 
-  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = ()
+  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = dslTest1M.get
 
   val merged1 = merge(DSLTest1M, DSLTest2M)
   val merged2 = merge(DSLTest2M, DSLTest3M)
@@ -195,5 +220,6 @@ object MultiLevelMerge extends App {
 
   import merged3.implicits._
 
-  prg[merged3.M]
+  val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
+  println(merged3.run(prg[merged3.M], intp.interpreter))
 }
