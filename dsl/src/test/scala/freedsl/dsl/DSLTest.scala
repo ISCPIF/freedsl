@@ -214,12 +214,29 @@ object MultiLevelMerge extends App {
 
   def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = dslTest1M.get
 
-  val merged1 = merge(DSLTest1M, DSLTest2M)
-  val merged2 = merge(DSLTest2M, DSLTest3M)
-  val merged3 = merge(merged1, merged2)
 
-  import merged3.implicits._
+  def withInterpreters = {
+    val merged1 = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)
+    val merged2 = merge(DSLTest2M.interpreter, DSLTest3M.interpreter)
 
-  val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
-  println(merged3.run(prg[merged3.M], intp.interpreter))
+    val merged3 = merge(merged1, merged2)
+
+    import merged3.implicits._
+    println(merged3.run(prg[merged3.M]))
+  }
+
+
+  def withDSL = {
+    val merged1 = merge(DSLTest1M, DSLTest2M)
+    val merged2 = merge(DSLTest3M, DSLTest2M)
+    val merged3 = merge(merged1, merged2)
+
+    import merged3.implicits._
+
+    val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
+    println(intp.run(prg[merged3.M]))
+  }
+
+  withInterpreters
+  withDSL
 }

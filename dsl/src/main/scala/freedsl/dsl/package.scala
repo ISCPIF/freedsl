@@ -26,7 +26,7 @@ import scala.reflect.macros.whitebox.Context
 package object dsl extends
   cats.instances.AllInstances {
 
-  trait DSLObjectIndentifier
+  trait DSLObjectIdentifier
 
   trait DSLObject {
     type I[_]
@@ -35,7 +35,9 @@ package object dsl extends
 
   trait MergedDSLObject
   trait Error
+
   trait DSLInterpreter
+  trait MergedDSLInterpreter
 
 
   def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
@@ -66,7 +68,7 @@ package object dsl extends
       val dslObjectType = weakTypeOf[DSLObject]
       val dslErrorType = weakTypeOf[freedsl.dsl.Error]
       val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
-      val dslObjectIndentifierType = weakTypeOf[freedsl.dsl.DSLObjectIndentifier]
+      val dslObjectIdentifierType = weakTypeOf[freedsl.dsl.DSLObjectIdentifier]
 
       val objectIdentifier = UUID.randomUUID().toString
 
@@ -74,7 +76,7 @@ package object dsl extends
         $mods object $name extends ..$bases with $dslObjectType { comp =>
            import cats._
 
-           type ${TypeName(objectIdentifier)} = $dslObjectIndentifierType
+           type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
 
            type TypeClass[..${clazz.tparams}] = ${clazz.name}[..${clazz.tparams.map(_.name)}]
 
@@ -88,9 +90,9 @@ package object dsl extends
 
            trait Interpreter[T[_]] extends cats.~>[I, T] with $dslInterpreterType {
              val companion: $name.type = comp
-             type ${TypeName(objectIdentifier)} = $dslObjectIndentifierType
+             type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
              def interpret[A]: (I[A] => T[A])
-             def apply[A](f: I[A]) = interpret[A](f)
+             def apply[A](f: I[A]) = interpret(f)
            }
 
            ..$body
@@ -134,7 +136,7 @@ package object dsl extends
 
 
   def extractObjectIdentifier(c: Context)(t: c.universe.Tree) = {
-    val dslObjectIndentifierType = c.universe.weakTypeOf[freedsl.dsl.DSLObjectIndentifier]
+    val dslObjectIndentifierType = c.universe.weakTypeOf[freedsl.dsl.DSLObjectIdentifier]
     t.symbol.typeSignature.finalResultType.members.find(_.typeSignature.finalResultType <:< dslObjectIndentifierType).get.name.toString
   }
 
@@ -144,8 +146,6 @@ package object dsl extends
 
     val uniqObjects = objects.map(o => extractObjectIdentifier(c)(o.tree) -> o).toMap.values.toSeq
     val sortedObjects = uniqObjects.sortBy(o => extractObjectIdentifier(c)(o.tree))
-
-    import c.universe._
 
     val I = sortedObjects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"freek.:|:[$o1, $o2]": Tree)
 
@@ -184,7 +184,7 @@ package object dsl extends
       }
     }
 
-    def mergedObjects = sortedObjects.zipWithIndex.map { case(o, i) => q"val ${TermName(s"mergeObject$i")} = $o" }
+    def mergedObjects = sortedObjects.zipWithIndex.map { case(o, i) => q"val ${TermName(s"mergedObject$i")} = $o" }
 
     val res = c.Expr(
       q"""
@@ -227,8 +227,18 @@ package object dsl extends
   def mergeInterpreters_impl(c: Context)(objects: c.Expr[freedsl.dsl.DSLInterpreter]*): c.Expr[Any] = {
     import c.universe._
 
-    val sortedObjects = objects.sortBy(o => extractObjectIdentifier(c)(o.tree))
-    val mergedInterpreters = sortedObjects.map(x => x.tree).reduceRight((o1, o2) => q"$o1 :&: $o2": Tree)
+
+    def distinct(interpreters: List[Tree], result: List[Tree], seen: Set[String]): List[Tree] =
+      interpreters match {
+        case Nil => result.reverse
+        case h :: t =>
+          val id = extractObjectIdentifier(c)(h)
+          if(seen.contains(id)) distinct(t, result, seen)
+          else distinct(t, h :: result, seen + id)
+      }
+
+    val sortedObjects = distinct(objects.map(_.tree).toList, List.empty, Set.empty).sortBy(o => extractObjectIdentifier(c)(o))
+    val freekInterpreter = sortedObjects.map(x => x).reduceRight((o1, o2) => q"$o1 :&: $o2": Tree)
 
     val stableTerms = (sortedObjects.zipWithIndex).map { case (o, i) => TermName(s"o$i") }
     val stableIdentifiers = (sortedObjects zip stableTerms).map { case (o, t) =>
@@ -236,22 +246,25 @@ package object dsl extends
     }
 
     val companions = stableTerms.map( t => q"$t.companion")
+    val mergedDSLInterpreterType = weakTypeOf[MergedDSLInterpreter]
 
     val res =
       q"""
       import scala.language.experimental.macros
       import freek._
 
-      class InterpretationContext {
+      class InterpretationContext extends $mergedDSLInterpreterType {
         ..$stableIdentifiers
 
         val merged = freedsl.dsl.merge(..$companions)
         type M[T] = merged.M[T]
 
-        lazy val interpreter = $mergedInterpreters
         lazy val implicits = merged.implicits
 
-        def run[T](program: M[T]) = merged.run(program, interpreter)
+        def run[T](program: M[T]) = {
+          lazy val interpreter = $freekInterpreter
+          merged.run(program, interpreter)
+        }
       }
 
       new InterpretationContext()"""
@@ -277,6 +290,24 @@ package object dsl extends
 
   def merge(objects: freedsl.dsl.MergedDSLObject*) = macro mergeMergedObjects_impl
 
+
+  def mergeMergedInterpreters_impl(c: Context)(objects: c.Expr[freedsl.dsl.MergedDSLInterpreter]*): c.Expr[Any] = {
+    import c.universe._
+
+    val dslObjectType = weakTypeOf[DSLInterpreter]
+
+    def objectValues = objects.map { o =>
+      o.actualType.members.toVector.filter(_.typeSignature.finalResultType <:< dslObjectType).toSeq.map { res =>
+        val interpreter = q"$o.$res"
+        interpreter
+      }
+    }
+
+    val exprs = objectValues.flatten.map(o => c.Expr[freedsl.dsl.DSLInterpreter](o))
+    mergeInterpreters_impl(c)(exprs: _*)
+  }
+
+  def merge(objects: freedsl.dsl.MergedDSLInterpreter*) = macro mergeMergedInterpreters_impl
 
 
 }
