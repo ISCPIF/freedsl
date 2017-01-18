@@ -41,6 +41,8 @@ object Random {
 
 ### Using your new DSL
 
+#### Merging interpreters
+
 ```scala
 import cats._
 import cats.implicits._
@@ -66,6 +68,83 @@ def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M], logM: 
 // they are build using the free monad and the freek library
 
 val interpreter = merge(Util.interpreter, Random.interpreter(42), Log.interpreter)
+import interpreter.implicits._
+
+def prg =
+  for {
+    b ← randomData[interpreter.M]
+    _ ← randomSleep[interpreter.M]
+  } yield b
+  
+
+// All the side effects take place here in the interpreter
+interpreter.run(prg) match {
+  case Right(v) => println(s"This is a success: $v")
+  case Left(e) => println(s"OhOh, error: $e")
+}
+```
+#### Merging DSLs
+
+Types can be merged independently from intepreters. For instance:
+
+```scala
+val merged = merge(Util, Random, Log)
+import merged.implicits._
+
+def prg =
+  for {
+    b ← randomData[merged.M]
+    _ ← randomSleep[merged.M]
+  } yield b
+
+  
+val interpreter = merge(Util.interpreter, Random.interpreter(42), Log.interpreter)
+
+// All the side effects take place here in the interpreter
+interpreter.run(prg) match {
+  case Right(v) => println(s"This is a success: $v")
+  case Left(e) => println(s"OhOh, error: $e")
+}
+```
+
+
+#### Mutli-level merging
+
+DSLs and interpreters can be merged at multiple scala. For instance:
+
+```scala
+val merged1 = merge(Util, Random)
+val merged2 = merge(Log, Random)
+val merged = merge(merged1, merged2)
+import merged.implicits._
+
+def prg =
+  for {
+    b ← randomData[merged.M]
+    _ ← randomSleep[merged.M]
+  } yield b
+
+  
+val interpreter = merge(Util.interpreter, Random.interpreter(42), Log.interpreter)
+
+// All the side effects take place here in the interpreter
+interpreter.run(prg) match {
+  case Right(v) => println(s"This is a success: $v")
+  case Left(e) => println(s"OhOh, error: $e")
+}
+```
+
+And for interpreters:
+
+```scala
+// Construct the interpreter and a type M along with implicit instances of Random[M], Util[M] and Log[M]
+// they are build using the free monad and the freek library
+
+val merged1 = merge(Util.interpreter, Random.interpreter(42))
+val merged2 = merge(Log.interpreter, Util.interpreter)
+
+// In this merge the second interpreter for Util is droped
+val interpreter = merge(merged1, merged2)
 import interpreter.implicits._
 
 def prg =
