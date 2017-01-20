@@ -39,7 +39,9 @@ package object dsl extends
   trait Error
 
   sealed trait MergeableDSLInterpreter
-  trait DSLInterpreter extends MergeableDSLInterpreter
+  trait DSLInterpreter extends MergeableDSLInterpreter {
+    def terminate: Either[Error, Unit] = Right(())
+  }
   trait MergedDSLInterpreter extends MergeableDSLInterpreter
 
 
@@ -255,6 +257,9 @@ package object dsl extends
   def mergeInterpreters_impl(c: Context)(objects: c.Expr[freedsl.dsl.MergeableDSLInterpreter]*): c.Expr[freedsl.dsl.MergedDSLInterpreter] = {
     import c.universe._
 
+    val dslObjectType = weakTypeOf[DSLInterpreter]
+    val dslErrorTye = weakTypeOf[Error]
+
     def mergeInterpreters(objects: Seq[c.Expr[DSLInterpreter]]): c.Expr[MergedDSLInterpreter] = {
       def distinct(interpreters: List[Tree], result: List[Tree], seen: Set[String]): List[Tree] =
         interpreters match {
@@ -275,6 +280,7 @@ package object dsl extends
 
       val companions = stableTerms.map(t => q"$t.companion")
       val mergedDSLInterpreterType = weakTypeOf[MergedDSLInterpreter]
+      val interpreters = q"""List[$dslObjectType](..${sortedObjects.map(o => c.Expr[DSLInterpreter](o)).map(o => q"$o")})"""
 
       val res =
         q"""
@@ -290,8 +296,23 @@ package object dsl extends
         lazy val implicits = merged.implicits
 
         def run[T](program: M[T]) = {
+          def foldError(eithers: List[Either[$dslErrorTye, Unit]]): Either[$dslErrorTye, Unit] =
+            eithers match {
+              case Nil => Right(())
+              case h :: t =>
+                h match {
+                  case Right(()) => foldError(t)
+                  case Left(e) => Left(e)
+                }
+            }
+
           lazy val interpreter = $freekInterpreter
-          program.value.interpret(interpreter)
+          val res = program.value.interpret(interpreter)
+          val termination = foldError($interpreters.map(_.terminate))
+          for {
+            v <- res
+            _ <- termination
+          } yield v
         }
       }
 
@@ -302,8 +323,6 @@ package object dsl extends
 
     def extractInterpreters(mergedDSLInterpreter: c.Expr[MergedDSLInterpreter]): List[c.Expr[DSLInterpreter]] = {
       import c.universe._
-
-      val dslObjectType = weakTypeOf[DSLInterpreter]
 
       val objectValues =
         mergedDSLInterpreter.actualType.members.filter(_.typeSignature.finalResultType <:< dslObjectType).map { res => q"$mergedDSLInterpreter.$res" }
