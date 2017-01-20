@@ -213,14 +213,6 @@ package object dsl extends
             import freek._
             ..${sortedObjects.flatMap(o => implicitFunction(o))}
           }
-
-          // Don't exactly know why but it seem not possible to abstract over Id
-          def run[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = {
-            mt.value.interpret(interpreter)
-          }
-
-          @deprecated("use run")
-          def result[T](mt: M[T], interpreter: freek.Interpreter[DSLInstance.Cop, Id]) = run(mt, interpreter)
        }
        new Context
       """)
@@ -299,7 +291,7 @@ package object dsl extends
 
         def run[T](program: M[T]) = {
           lazy val interpreter = $freekInterpreter
-          merged.run(program, interpreter)
+          program.value.interpret(interpreter)
         }
       }
 
