@@ -232,7 +232,7 @@ package object dsl extends
     def extractInnerMergedObjects(objects: Seq[c.Expr[freedsl.dsl.MergedDSLObject]]): Seq[c.Expr[freedsl.dsl.DSLObject]] = {
       import c.universe._
 
-     val dslObjectType = weakTypeOf[DSLObject]
+      val dslObjectType = weakTypeOf[DSLObject]
 
       def objectValues = objects.flatMap { o =>
         o.actualType.members.filter(_.typeSignature.finalResultType <:< dslObjectType).toSeq.map { res =>

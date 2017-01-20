@@ -18,7 +18,6 @@
 package freedsl.dsl
 
 
-
 object PureFreek extends App {
 
   import cats._
@@ -91,6 +90,124 @@ object PureFreek2 extends App {
   println(prog(9).value.interpret(interpreter))
 }
 
+
+object PureCats extends App {
+  import cats._
+  import cats.free._
+
+  sealed trait Instruction[T]
+  final case class Get() extends Instruction[Int]
+  final case class Get2() extends Instruction[Double]
+
+  def get(): Free[Instruction, Int] = Free.liftF(Get())
+  def get2(): Free[Instruction, Double] = Free.liftF(Get2())
+
+  val prg =
+    for {
+      g <- get()
+      g2 <- get2()
+    } yield g * g2
+
+  val interpreter = new (Instruction ~> Id) {
+    def apply[A](fa: Instruction[A]): Id[A] = fa match {
+      case Get() => 1
+      case Get2() => 2.0
+    }
+  }
+
+  println(prg.foldMap(interpreter))
+
+}
+
+//object MergeCats extends App {
+//  import cats._
+//  //import cats.data._
+//  import cats.data.Coproduct, cats.free.Inject, cats.free.Free
+//
+//  object DSL1 {
+//    sealed trait Instruction[T]
+//    final case class Get() extends Instruction[Int]
+//    final case class Get2() extends Instruction[Double]
+//
+//    implicit def dsl1[F[_]](implicit I: Inject[Instruction, F]): DSL1[F] = new DSL1[F]
+//
+//     val interpreter = new (Instruction ~> Id) {
+//       def apply[A](fa: Instruction[A]): Id[A] = fa match {
+//         case Get() => 1
+//         case Get2() => 2.0
+//       }
+//     }
+//  }
+//
+//  class DSL1[F[_]](implicit I: Inject[DSL1.Instruction, F]) {
+//    def get(): Free[F, Int] = Free.inject[DSL1.Instruction, F](DSL1.Get())
+//    def get2(): Free[F, Double] = Free.inject[DSL1.Instruction, F](DSL1.Get2())
+//  }
+//
+//  object DSL2 {
+//    sealed trait Instruction[T]
+//    final case class Get() extends Instruction[Int]
+//    final case class Get2() extends Instruction[Double]
+//
+//    implicit def dsl2[F[_]](implicit I: Inject[Instruction, F]): DSL2[F] = new DSL2[F]
+//
+//    val interpreter = new (Instruction ~> Id) {
+//      def apply[A](fa: Instruction[A]): Id[A] = fa match {
+//        case Get() => 3
+//        case Get2() => 4.0
+//      }
+//    }
+//  }
+//
+//  class DSL2[F[_]](implicit I: Inject[DSL2.Instruction, F]) {
+//    def get(): Free[F, Int] = Free.inject[DSL2.Instruction, F](DSL2.Get())
+//    def get2(): Free[F, Double] = Free.inject[DSL2.Instruction, F](DSL2.Get2())
+//  }
+//
+//  object DSL3 {
+//    sealed trait Instruction[T]
+//    final case class Get() extends Instruction[Int]
+//    final case class Get2() extends Instruction[Double]
+//
+//    implicit def dsl3[F[_]](implicit I: Inject[Instruction, F]): DSL3[F] = new DSL3[F]
+//
+//    val interpreter = new (Instruction ~> Id) {
+//      def apply[A](fa: Instruction[A]): Id[A] = fa match {
+//        case Get() => 4
+//        case Get2() => 5.0
+//      }
+//    }
+//  }
+//
+//  class DSL3[F[_]](implicit I: Inject[DSL3.Instruction, F]) {
+//    def get(): Free[F, Int] = Free.inject[DSL3.Instruction, F](DSL3.Get())
+//    def get2(): Free[F, Double] = Free.inject[DSL3.Instruction, F](DSL3.Get2())
+//  }
+//
+//  type MergedDSL[A] = Coproduct[DSL1.Instruction,  Coproduct[DSL2.Instruction, DSL3.Instruction, ?], A]
+//
+//  def prg(implicit dsl1: DSL1[MergedDSL], dsl2: DSL2[MergedDSL], dsl3: DSL3[MergedDSL]) =
+//    for {
+//      g <- dsl1.get()
+//      g2 <- dsl1.get2()
+//      sg <- dsl2.get()
+//      sg2 <- dsl2.get2()
+//    } yield g * g2 * sg * sg2
+//
+//  val interpreter: MergedDSL ~> Id = DSL1.interpreter or (DSL2.interpreter or DSL3.interpreter)
+//
+//  println(prg.foldMap(interpreter))
+//
+////  val interpreter = new (Instruction ~> Id) {
+////    def apply[A](fa: Instruction[A]): Id[A] = fa match {
+////      case Get() => 1
+////      case Get2() => 2.0
+////    }
+////  }
+////
+////  println(prg.foldMap(interpreter))
+//
+//}
 
 object DSLTest extends App {
 
