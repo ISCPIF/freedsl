@@ -37,7 +37,7 @@ package object dsl extends
   trait MergedDSLObject extends MergeableDSLObject
 
   trait Error
-
+  
   sealed trait MergeableDSLInterpreter
   trait DSLInterpreter extends MergeableDSLInterpreter {
     def terminate: Either[Error, Unit] = Right(())
@@ -49,6 +49,11 @@ package object dsl extends
     import c.universe._
 
     def generateCompanion(clazz: ClassDef, comp: Tree) = {
+      val dslObjectType = weakTypeOf[DSLObject]
+      val dslErrorType = weakTypeOf[freedsl.dsl.Error]
+      val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
+      val dslObjectIdentifierType = weakTypeOf[freedsl.dsl.DSLObjectIdentifier]
+
       val instructionName = TypeName(c.freshName("Instruction"))
 
       val q"$mods object $name extends ..$bases { ..$body }" = comp
@@ -66,14 +71,11 @@ package object dsl extends
 
       def generateCaseClass(func: DefDef) = {
         val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-        q"case class ${TypeName(opTerm(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[Error, ${func.tpt.children.drop(1).head}]]"
+        q"case class ${TypeName(opTerm(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[$dslErrorType, ${func.tpt.children.drop(1).head}]]"
       }
 
       val caseClasses = collect(cstats).map(c => generateCaseClass(c))
-      val dslObjectType = weakTypeOf[DSLObject]
-      val dslErrorType = weakTypeOf[freedsl.dsl.Error]
-      val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
-      val dslObjectIdentifierType = weakTypeOf[freedsl.dsl.DSLObjectIdentifier]
+
 
       val objectIdentifier = UUID.randomUUID().toString
 
@@ -91,7 +93,7 @@ package object dsl extends
            type Error = $dslErrorType
 
            type I[T] = ${instructionName}[T]
-           type O[T] = Either[Error, T]
+           type O[T] = Either[$dslErrorType, T]
 
            trait Interpreter[T[_]] extends cats.~>[I, T] with $dslInterpreterType {
              val companion: $name.type = comp
@@ -152,7 +154,7 @@ package object dsl extends
 
 
     def mergeDSLObjects(objects: Seq[c.Expr[freedsl.dsl.DSLObject]]): c.Expr[freedsl.dsl.MergedDSLObject] = {
-
+      val dslErrorType = weakTypeOf[freedsl.dsl.Error]
       val uniqObjects = objects.map(o => extractObjectIdentifier(c)(o.tree) -> o).toMap.values.toSeq
       val sortedObjects = uniqObjects.sortBy(o => extractObjectIdentifier(c)(o.tree))
 
@@ -205,7 +207,7 @@ package object dsl extends
           import cats.implicits._
 
           type I = $I
-          type OL[T] = Either[freedsl.dsl.Error, T]
+          type OL[T] = Either[$dslErrorType, T]
           type O = OL :&: Bulb
 
           val DSLInstance = freek.DSL.Make[I]
