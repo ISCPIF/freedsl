@@ -221,6 +221,8 @@ object DSLTest extends App {
         case param(a) => Right(a)
         case fails() => Left(ItFailed("Boooo"))
       }
+
+      override def terminate = Right(())
     }
 
     case class FileNotFound(s: String) extends Error
