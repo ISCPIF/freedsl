@@ -217,9 +217,7 @@ object MultiLevelMerge extends App {
 
   def withInterpreters = {
     val merged1 = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)
-    val merged2 = merge(DSLTest2M.interpreter, DSLTest3M.interpreter)
-
-    val merged3 = merge(merged1, merged2)
+    val merged3 = merge(merged1, DSLTest3M.interpreter)
 
     import merged3.implicits._
     println(merged3.run(prg[merged3.M]))

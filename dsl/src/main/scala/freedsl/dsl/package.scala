@@ -336,10 +336,4 @@ package object dsl extends
 
   def merge(objects: freedsl.dsl.MergeableDSLInterpreter*) = macro mergeInterpreters_impl
 
-
-
-
-  //def merge(objects: freedsl.dsl.MergedDSLInterpreter*) = macro mergeMergedInterpreters_impl
-
-
 }

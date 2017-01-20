@@ -113,9 +113,8 @@ interpreter.run(prg) match {
 DSLs and interpreters can be merged at multiple scala. For instance:
 
 ```scala
-val merged1 = merge(Util, Random)
-val merged2 = merge(Log, Random)
-val merged = merge(merged1, merged2)
+val partialMerge = merge(Util, Random)
+val merged = merge(partialMerge, Log)
 import merged.implicits._
 
 def prg =
@@ -140,11 +139,10 @@ And for interpreters:
 // Construct the interpreter and a type M along with implicit instances of Random[M], Util[M] and Log[M]
 // they are build using the free monad and the freek library
 
-val merged1 = merge(Util.interpreter, Random.interpreter(42))
-val merged2 = merge(Log.interpreter, Util.interpreter)
+val partialMerge = merge(Util.interpreter, Random.interpreter(42))
 
-// In this merge the second interpreter for Util is droped
-val interpreter = merge(merged1, merged2)
+// In case several interpreters are provided for a given DSL, the first one in the list is retained
+val interpreter = merge(partialMerge, Log.interpreter)
 import interpreter.implicits._
 
 def prg =
