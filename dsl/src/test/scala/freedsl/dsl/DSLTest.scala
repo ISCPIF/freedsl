@@ -229,7 +229,7 @@ object MultiLevelMerge extends App {
   def withDSL = {
     val merged1 = merge(DSLTest1M, DSLTest2M)
     val merged2 = merge(DSLTest3M, DSLTest2M)
-    val merged3 = merge(merged1, merged2)
+    val merged3 = merge(merged1, merged2, DSLTest3M)
 
     import merged3.implicits._
 
