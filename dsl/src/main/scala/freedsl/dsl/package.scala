@@ -273,16 +273,16 @@ package object dsl extends
         }
 
       val sortedObjects = distinct(objects.map(_.tree).toList, List.empty, Set.empty).sortBy(o => extractObjectIdentifier(c)(o))
-      val freekInterpreter = sortedObjects.map(x => x).reduceRight((o1, o2) => q"$o1 :&: $o2": Tree)
-
       val stableTerms = (sortedObjects.zipWithIndex).map { case (o, i) => TermName(s"o$i") }
-      val stableIdentifiers = (sortedObjects zip stableTerms).map { case (o, t) =>
-        q"val $t = $o"
+      val stableIdentifiers = (sortedObjects zip stableTerms).map { case (o, stable) =>
+        q"val $stable = $o"
       }
 
+      val freekInterpreter = stableTerms.map(x => q"$x": Tree).reduceRight((o1, o2) => q"$o1 :&: $o2")
       val companions = stableTerms.map(t => q"$t.companion")
       val mergedDSLInterpreterType = weakTypeOf[MergedDSLInterpreter]
-      val interpreters = q"""List[$dslObjectType](..${sortedObjects.map(o => c.Expr[DSLInterpreter](o)).map(o => q"$o")})"""
+
+      val interpreters = q"""List[$dslObjectType](..${stableTerms.map(o => q"$o")})"""
 
       val res =
         q"""
