@@ -1,4 +1,4 @@
-package dsl.filesystem
+package freedsl.filesystem
 
 import java.io._
 import freedsl.dsl._
