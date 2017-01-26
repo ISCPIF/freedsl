@@ -6,17 +6,15 @@ import freedsl.dsl._
 
 object IO {
 
-  def interpreter = new Interpreter[Id] {
-    def interpret[_] = {
-      case run(f) => util.Try(f()) match {
-        case util.Success(s) => Right(s)
-        case util.Failure(t) => Left(IOError(t))
-      }
-      case exception(t) => Left(IOError(t))
-      case exceptionOrResult(e) => e.leftMap(t => IOError(t))
-      case errorMessage(m) => Left(IOError(new RuntimeException(m)))
-      case errorMessageOrResult(e) => e.leftMap(m => IOError(new RuntimeException(m)))
+  def interpreter = new Interpreter {
+    def run[A](f: () => A) = util.Try(f()) match {
+      case util.Success(s) => Right(s)
+      case util.Failure(t) => Left(IOError(t))
     }
+    def exception(t: Throwable) = Left(IOError(t))
+    def exceptionOrResult[A](e: Either[Throwable, A]) = e.leftMap(t => IOError(t))
+    def errorMessage(m: String) = Left(IOError(new RuntimeException(m)))
+    def errorMessageOrResult[A](e: Either[String, A]) = e.leftMap(m => IOError(new RuntimeException(m)))
   }
 
   case class IOError(t: Throwable) extends Error

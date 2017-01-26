@@ -22,10 +22,8 @@ import freedsl.dsl._
 
 object Log {
 
-  def interpreter = new Interpreter[Id] {
-    def interpret[_] = {
-      case print(s) => Right(println(s))
-    }
+  def interpreter = new Interpreter {
+    def print(s: String) = Right(println(s))
   }
 
   case class IOError(t: Throwable) extends Error

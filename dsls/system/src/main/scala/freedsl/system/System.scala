@@ -7,11 +7,9 @@ import squants._
 
 object System {
 
-  def interpreter = new Interpreter[Id] {
-    def interpret[_] = {
-      case randomUUID() => Right(UUID.randomUUID())
-      case sleep(d) => Right(Thread.sleep(d.millis))
-    }
+  def interpreter = new Interpreter {
+    def randomUUID = Right(UUID.randomUUID())
+    def sleep(d: Time) = Right(Thread.sleep(d.millis))
   }
 
 }

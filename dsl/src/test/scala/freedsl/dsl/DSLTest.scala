@@ -91,6 +91,34 @@ object PureFreek2 extends App {
 }
 
 
+object PureFreek3 extends App {
+
+  import cats._
+  import cats.data._
+  import freek._
+
+  sealed trait Instruction[T]
+  final case class Get() extends Instruction[Either[String, Int]]
+
+
+  type I = Instruction :|: NilDSL
+  type O = Either[String, ?] :&: Bulb
+
+  def prog =
+    for {
+      i <- Get().freek[I].onionX1[O]
+    } yield i
+
+  def interpreter = new (Instruction ~> Id) {
+    def apply[A](a: Instruction[A]) = a match {
+      case Get() => Right(1)
+    }
+  }
+
+  println(prog.value.interpret(interpreter))
+}
+
+
 object PureCats extends App {
   import cats._
   import cats.free._
@@ -212,16 +240,12 @@ object PureCats extends App {
 object DSLTest extends App {
 
   object DSLTest1M {
-    def interpreter = new Interpreter[Id] {
-      def interpret[_] = {
-        case get() => Right(1)
-        case getSet() => Right(Set(1))
-        case option() => Right(Some("cool"))
-        case set(i) => Right(i)
-        case param(a) => Right(a)
-        case fails() => Left(ItFailed("Boooo"))
-      }
-
+    def interpreter = new Interpreter {
+      def get = Right(1)
+      def set1(i: Int) = Right(2)
+      def set(i: Int)(implicit j: Int) = Right(i * j)
+      def param[A](a: A) = Right(a)
+      def fails = Left(ItFailed("booo"))
       override def terminate = Right(())
     }
 
@@ -231,19 +255,16 @@ object DSLTest extends App {
 
   @dsl trait DSLTest1M[M[_]] {
     def get: M[Int]
-    def getSet: M[Set[Int]]
-    def option: M[Option[String]]
-    def set(i: Int): M[Int]
+    def set1(i: Int): M[Int]
+    def set(i: Int)(implicit j: Int): M[Int]
     def param[A](a: A): M[A]
     def fails: M[Unit]
     def concreteMethod = 9
   }
 
   object DSLTest2M {
-    def interpreter = new Interpreter[Id] {
-      def interpret[_] = {
-        case get() => Right("dsl2 is nice")
-      }
+    def interpreter = new Interpreter {
+      def get = Right("dsl2 is nice")
     }
   }
 
@@ -257,10 +278,8 @@ object DSLTest extends App {
 
 
   object DSLTest3M {
-    def interpreter = new Interpreter[Id] {
-      def interpret[_] = {
-        case test() => Right(())
-      }
+    def interpreter = new Interpreter {
+      def test = Right(())
     }
   }
 
@@ -274,12 +293,10 @@ object DSLTest extends App {
   def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: AbstractDSL2[M, String]) =
     for {
       i <- dslTest1M.get
-      j <- dslTest1M.getSet
       k <- dslTest1M.get
       l <- dslTest2M.get
       // _ <- dslTest1M.fails
-      o <- dslTest1M.option
-    } yield (i, j, k, l, o)
+    } yield (i, k, l)
 
   val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
   import intp.implicits._
@@ -291,31 +308,26 @@ object DSLTest extends App {
 
 }
 
+
+
 object MultiLevelMerge extends App {
   import cats._
-  import freek._
 
   object DSLTest1M {
-    def interpreter = new Interpreter[Id] {
-      def interpret[_] = {
-        case get() => Right("dsl1 is nice")
-      }
+    def interpreter = new Interpreter {
+      def get = Right("dsl1 is nice")
     }
   }
 
   object DSLTest2M {
-    def interpreter = new Interpreter[Id] {
-      def interpret[_] = {
-        case get() => Right("dsl2 is nice")
-      }
+    def interpreter = new Interpreter {
+      def get = Right("dsl2 is nice")
     }
   }
 
   object DSLTest3M {
-    def interpreter = new Interpreter[Id] {
-      def interpret[_] = {
-        case get() => Right("dsl3 is nice")
-      }
+    def interpreter = new Interpreter {
+      def get = Right("dsl3 is nice")
     }
   }
 
@@ -332,7 +344,6 @@ object MultiLevelMerge extends App {
   }
 
   def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = dslTest1M.get
-
 
   def withInterpreters = {
     val merged1 = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)

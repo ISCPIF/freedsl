@@ -10,22 +10,18 @@ FreeDSL is a library for pure composition of side effects, weaving typeclasses o
 ### Creating a new DSL
 
 ```scala
-import cats._
-import cats.implicits._
 import freedsl.dsl._
 
 object Random {
 
-  def interpreter(random: util.Random) = new Interpreter[Id] {
-    def interpret[_] = {
-      case nextDouble() => Right(random.nextDouble)
-      case nextInt(n) => Right(random.nextInt(n))
-      case shuffle(s) => Right(random.shuffle(s))
-      case fakeError() => Left(FakeError("for some reason there was an error"))
-    }
+  def interpreter(random: util.Random) = new Interpreter {
+    def nextDouble = Right(random.nextDouble)
+    def nextInt(n: Int) => Right(random.nextInt(n))
+    def shuffle[A](s: Seq[A]) = Right(random.shuffle(s))
+    def fakeError = Left(FakeError("for some reason there was an error"))
   }
 
-  def interpreter(seed: Long): Interpreter[Id] = interpreter(new util.Random(seed))
+  def interpreter(seed: Long): Interpreter = interpreter(new util.Random(seed))
   
   case class FakeError(cause: String) extends Error
 

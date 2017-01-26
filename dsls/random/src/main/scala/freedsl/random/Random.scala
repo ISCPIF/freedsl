@@ -23,17 +23,15 @@ import freedsl.dsl._
 
 object Random {
 
-  def interpreter(random: util.Random) = new Interpreter[Id] {
-    def interpret[_] = {
-      case nextDouble() => Right(random.nextDouble)
-      case nextInt(n) => Right(random.nextInt(n))
-      case nextBoolean() => Right(random.nextBoolean())
-      case shuffle(s) => Right(random.shuffle(s))
-      case use(f) => Right(f(random))
-    }
+  def interpreter(random: util.Random) = new Interpreter {
+    def nextDouble = Right(random.nextDouble)
+    def nextInt(n: Int) = Right(random.nextInt(n))
+    def nextBoolean = Right(random.nextBoolean())
+    def shuffle[A](s: Vector[A]) = Right(random.shuffle(s))
+    def use[T](f: util.Random => T) = Right(f(random))
   }
 
-  def interpreter(seed: Long): Interpreter[Id] = interpreter(new util.Random(seed))
+  def interpreter(seed: Long): Interpreter = interpreter(new util.Random(seed))
 
 }
 

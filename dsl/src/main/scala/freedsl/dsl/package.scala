@@ -19,6 +19,8 @@ package freedsl
 
 import java.util.UUID
 
+import cats.{Monad, MonadError}
+
 import scala.annotation.StaticAnnotation
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
@@ -48,7 +50,7 @@ package object dsl extends
   def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
     import c.universe._
 
-    def generateCompanion(clazz: ClassDef, comp: Tree) = {
+    def generateCompanion(clazz: ClassDef, comp: Tree, containerType: TypeDef) = {
       val dslObjectType = weakTypeOf[DSLObject]
       val dslErrorType = weakTypeOf[freedsl.dsl.Error]
       val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
@@ -67,17 +69,43 @@ package object dsl extends
       def collect(t: cstats.type) =
         t.collect { case m: DefDef if abstractMethod(m) => m }
 
-      def opTerm(func: DefDef) = func.name.toString
+      def caseClassName(func: DefDef) = func.name.toString
+      def caseClassArguments(func: DefDef) = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
 
       def generateCaseClass(func: DefDef) = {
-        val params = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-        q"case class ${TypeName(opTerm(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[$dslErrorType, ${func.tpt.children.drop(1).head}]]"
+        val params = caseClassArguments(func)
+        q"case class ${TypeName(caseClassName(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[$dslErrorType, ${func.tpt.children.drop(1).head}]]"
       }
 
-      val caseClasses = collect(cstats).map(c => generateCaseClass(c))
+      def generateInterpreterMethod(func: DefDef) = {
+        val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = func
+        val extractedRet = tq"${func.tpt.children.drop(1).head}"
+        q"$mods def $tname[..$tparams](...$paramss): Either[$dslErrorType, $extractedRet] = $expr"
+      }
 
+      def generateMapping(func: DefDef): CaseDef = {
+        //val valueName = TermName(c.freshName("value"))
+        val params = caseClassArguments(func).collect { case x: TermTree => val q"$n: $_" = x; TermName(n.toString) }
 
+        def args(all: List[List[ValDef]], acc: List[List[TermName]] = Nil, offset: Int = 0): List[List[TermName]] =
+          all match {
+            case Nil => acc.reverse
+            case h :: t =>
+              args(t, params.slice(offset, offset + h.size) :: acc, offset + h.size)
+          }
+
+        cq"comp.${TermName(caseClassName(func))}(..${params.map(p => pq"$p")}) => ${func.name}(...${args(func.vparamss)})"
+      }
+
+      val abstractMethods = collect(cstats)
+      val interpreterAbstractMethods = abstractMethods.map(m => generateInterpreterMethod(m))
+      val interpreterMapping = abstractMethods.map(m => generateMapping(m))
+
+      val caseClasses = abstractMethods.map(c => generateCaseClass(c))
       val objectIdentifier = UUID.randomUUID().toString
+
+      //val interpreterTargetType = TypeName(c.freshName("T"))
+      val interpreterInputType = TypeName(c.freshName("I"))
 
       val modifiedCompanion = q"""
         $mods object $name extends ..$bases with $dslObjectType { comp =>
@@ -94,44 +122,53 @@ package object dsl extends
 
            type I[T] = ${instructionName}[T]
            type O[T] = Either[$dslErrorType, T]
+           type $interpreterInputType[T] = I[T]
 
-           trait Interpreter[T[_]] extends cats.~>[I, T] with $dslInterpreterType {
+           trait Interpreter extends cats.~>[$interpreterInputType, cats.Id] with $dslInterpreterType {
              val companion: $name.type = comp
              type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
-             def interpret[A]: (I[A] => T[A])
-             def apply[A](f: I[A]) = interpret(f)
+
+             ..$interpreterAbstractMethods
+
+             def apply[A](a: $interpreterInputType[A]) = a match {
+               case ..${interpreterMapping}
+             }
            }
 
            ..$body
         }
       """
 
+      //println(modifiedCompanion)
+
       c.Expr(q"""
         $clazz
         $modifiedCompanion""")
     }
 
-    def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = generateCompanion(typeClass, companion.getOrElse(q"object ${typeClass.name.toTermName} {}"))
-
     def applicationConditionError =
        c.abort(
          c.enclosingPosition,
-         "@dsl can only be applied to traits or abstract classes that take 1 type parameter which is either a proper type or a type constructor"
+         "@dsl can only be applied to traits or abstract classes that take 1 type parameter which is a type constructor with 1 parameter"
        )
 
-    def check(classDef: ClassDef): Option[Nothing] =
+    def getContainerType(classDef: ClassDef): TypeDef =
       classDef.tparams match {
         case List(p) =>
           p.tparams match {
-            case List(pp) => None
+            case List(pp) => p
             case _ => applicationConditionError
           }
         case _ => applicationConditionError
       }
 
     annottees.map(_.tree) match {
-      case (typeClass: ClassDef) :: Nil => check(typeClass) getOrElse modify(typeClass, None)
-      case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil => check(typeClass) getOrElse modify(typeClass, Some(companion))
+      case (typeClass: ClassDef) :: Nil =>
+        val t = getContainerType(typeClass)
+        generateCompanion(typeClass, q"object ${typeClass.name.toTermName} {}", t)
+      case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil =>
+        val t = getContainerType(typeClass)
+        generateCompanion(typeClass, companion, t)
       case other :: Nil => applicationConditionError
     }
 
@@ -348,5 +385,15 @@ package object dsl extends
   }
 
   def merge(objects: freedsl.dsl.MergeableDSLInterpreter*) = macro mergeInterpreters_impl
+
+
+  /** ----------- Additional tools to build DSLs ------------------- */
+
+  implicit class TryDecorator[T](t: util.Try[T]) {
+    def toEither = t match {
+      case util.Success(s) => Right(s)
+      case util.Failure(e) => Left(e)
+    }
+  }
 
 }
