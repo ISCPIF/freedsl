@@ -242,7 +242,7 @@ object DSLTest extends App {
   object DSLTest1M {
     def interpreter = new Interpreter {
       def get = Right(1)
-      def set1(i: Int) = Right(2)
+      def set(i: Double) = Right(2)
       def set(i: Int)(implicit j: Int) = Right(i * j)
       def param[A](a: A) = Right(a)
       def fails = Left(ItFailed("booo"))
@@ -255,7 +255,7 @@ object DSLTest extends App {
 
   @dsl trait DSLTest1M[M[_]] {
     def get: M[Int]
-    def set1(i: Int): M[Int]
+    def set(i: Double): M[Int]
     def set(i: Int)(implicit j: Int): M[Int]
     def param[A](a: A): M[A]
     def fails: M[Unit]

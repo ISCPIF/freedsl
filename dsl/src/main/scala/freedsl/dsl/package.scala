@@ -17,7 +17,7 @@
   */
 package freedsl
 
-import java.util.UUID
+import java.util.{Base64, UUID}
 
 import cats.{Monad, MonadError}
 
@@ -47,6 +47,20 @@ package object dsl extends
   trait MergedDSLInterpreter extends MergeableDSLInterpreter
 
 
+  private def methodSymbolId(c: Context)(m: c.universe.MethodSymbol) = {
+    import c.universe._
+    methodId(c)(m.name, m.paramLists.map(_.map(t => tq"${t.typeSignature}")))
+  }
+
+  private def methodDefId(c: Context)(m: c.universe.DefDef) = {
+    import c.universe._
+    methodId(c)(m.name, m.vparamss.map(_.map(t => tq"${t.tpt}")))
+  }
+
+  private def methodId(c: Context)(name: c.Name, params: List[List[c.Tree]]) = {
+    s"${name}_${Base64.getEncoder.encodeToString(s"$params".trim.getBytes)}"
+  }
+
   def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
     import c.universe._
 
@@ -69,12 +83,19 @@ package object dsl extends
       def collect(t: cstats.type) =
         t.collect { case m: DefDef if abstractMethod(m) => m }
 
-      def caseClassName(func: DefDef) = func.name.toString
+      val abstractMethods = collect(cstats)
+
+      val caseClassesNames = abstractMethods.map {
+        m =>
+          def caseClassName(func: DefDef) = methodDefId(c)(func)
+          m -> caseClassName(m)
+      }.toMap
+
       def caseClassArguments(func: DefDef) = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
 
       def generateCaseClass(func: DefDef) = {
         val params = caseClassArguments(func)
-        q"case class ${TypeName(caseClassName(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[$dslErrorType, ${func.tpt.children.drop(1).head}]]"
+        q"case class ${TypeName(caseClassesNames(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[$dslErrorType, ${func.tpt.children.drop(1).head}]]"
       }
 
       def generateInterpreterMethod(func: DefDef) = {
@@ -94,10 +115,10 @@ package object dsl extends
               args(t, params.slice(offset, offset + h.size) :: acc, offset + h.size)
           }
 
-        cq"comp.${TermName(caseClassName(func))}(..${params.map(p => pq"$p")}) => ${func.name}(...${args(func.vparamss)})"
+        cq"comp.${TermName(caseClassesNames(func))}(..${params.map(p => pq"$p")}) => ${func.name}(...${args(func.vparamss)})"
       }
 
-      val abstractMethods = collect(cstats)
+
       val interpreterAbstractMethods = abstractMethods.map(m => generateInterpreterMethod(m))
       val interpreterMapping = abstractMethods.map(m => generateMapping(m))
 
@@ -139,7 +160,7 @@ package object dsl extends
         }
       """
 
-      //println(modifiedCompanion)
+//      println(modifiedCompanion)
 
       c.Expr(q"""
         $clazz
@@ -209,6 +230,7 @@ package object dsl extends
 
           members.collect { case sym: TypeSymbol if sym.name == TypeName("TypeClass") => sym }.head
         }
+
         val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol if s.isAbstract && s.isPublic => s }.toList
 
         def generateFreekoImpl(m: MethodSymbol) = {
@@ -217,7 +239,12 @@ package object dsl extends
           val returns = TypeTree(m.returnType)
           val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
 
-          q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${m.name}(..${paramValues}).freek[I].onionX1[O] }"
+         // println("symbol: " + m.paramLists.map(_.map(t => tq"${t.typeSignature}")))
+          //println("symbol " + m.name + " " + methodSymbolId(c)(m))
+
+          def caseClassName = TermName(methodSymbolId(c)(m))
+
+          q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${caseClassName}(..${paramValues}).freek[I].onionX1[O] }"
         }
 
         val implem =
