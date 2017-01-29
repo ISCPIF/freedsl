@@ -26,24 +26,11 @@ import scala.reflect.macros.whitebox.{Context => MacroContext}
 package object dsl extends
   cats.instances.AllInstances {
 
-  trait DSLObjectIdentifier
-
-  sealed trait MergeableDSLObject
-  trait DSLObject extends MergeableDSLObject {
-    type I[_]
-    type O[_]
-  }
-
-  trait MergedDSLObject extends MergeableDSLObject
+  /* --------- Error and context managment ---------- */
 
   trait Error
   case class DSLError(cause: Throwable) extends Error
   
-  sealed trait MergeableDSLInterpreter
-  trait DSLInterpreter extends MergeableDSLInterpreter {
-    def terminate: Either[Error, Unit] = Right(())
-  }
-  trait MergedDSLInterpreter extends MergeableDSLInterpreter
 
   object Context {
     implicit def implicitContext = new Context {
@@ -73,6 +60,7 @@ package object dsl extends
     }
 
 
+  /* ---------------- Annotations ----------------- */
 
   class dsl extends StaticAnnotation {
     def macroTransform(annottees: Any*): Any = macro dsl_impl
@@ -81,6 +69,29 @@ package object dsl extends
   class adsl extends StaticAnnotation {
     def macroTransform(annottees: Any*): Any = macro abstractDsl_impl
   }
+
+
+  /* ------------------- DSL types ----------------- */
+
+  trait DSLObjectIdentifier
+
+  sealed trait MergeableDSLObject
+  trait DSLObject extends MergeableDSLObject {
+    type I[_]
+    type O[_]
+  }
+
+  trait MergedDSLObject extends MergeableDSLObject
+
+  sealed trait MergeableDSLInterpreter
+  trait DSLInterpreter extends MergeableDSLInterpreter {
+    def terminate: Either[Error, Unit] = Right(())
+  }
+  trait MergedDSLInterpreter extends MergeableDSLInterpreter
+
+
+  /* ----------- Internal dsl methods --------------- */
+
 
   private def methodSymbolId(c: MacroContext)(m: c.universe.MethodSymbol) = {
     import c.universe._
@@ -499,15 +510,6 @@ package object dsl extends
   }
 
   def merge(objects: freedsl.dsl.MergeableDSLInterpreter*) = macro mergeInterpreters_impl
-
-
-  /** ----------- Additional tools to build DSLs ------------------- */
-
-  implicit class TryDecorator[T](t: util.Try[T]) {
-    def toEither = t match {
-      case util.Success(s) => Right(s)
-      case util.Failure(e) => Left(e)
-    }
-  }
+  
 
 }
