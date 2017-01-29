@@ -19,11 +19,9 @@ package freedsl
 
 import java.util.{Base64, UUID}
 
-import cats.{Monad, MonadError}
-
 import scala.annotation.StaticAnnotation
 import scala.language.experimental.macros
-import scala.reflect.macros.whitebox.Context
+import scala.reflect.macros.whitebox.{Context => MacroContext}
 
 package object dsl extends
   cats.instances.AllInstances {
@@ -46,125 +44,194 @@ package object dsl extends
   }
   trait MergedDSLInterpreter extends MergeableDSLInterpreter
 
+  object Context {
+    implicit def implicitContext = new Context {}
+  }
+  trait Context
 
-  private def methodSymbolId(c: Context)(m: c.universe.MethodSymbol) = {
+  class dsl extends StaticAnnotation {
+    def macroTransform(annottees: Any*): Any = macro dsl_impl
+  }
+
+  class adsl extends StaticAnnotation {
+    def macroTransform(annottees: Any*): Any = macro abstractDsl_impl
+  }
+
+  private def methodSymbolId(c: MacroContext)(m: c.universe.MethodSymbol) = {
     import c.universe._
     methodId(c)(m.name, m.paramLists.map(_.map(t => tq"${t.typeSignature}")))
   }
 
-  private def methodDefId(c: Context)(m: c.universe.DefDef) = {
+  private def methodDefId(c: MacroContext)(m: c.universe.DefDef) = {
     import c.universe._
     methodId(c)(m.name, m.vparamss.map(_.map(t => tq"${t.tpt}")))
   }
 
-  private def methodId(c: Context)(name: c.Name, params: List[List[c.Tree]]) = {
+  private def methodId(c: MacroContext)(name: c.Name, params: List[List[c.Tree]]) =
     s"${name}_${Base64.getEncoder.encodeToString(s"$params".trim.getBytes)}"
+
+
+  def abstractMethod(c: MacroContext)(m: c.universe.DefDef) = {
+    import c.universe._
+    !m.mods.hasFlag(Flag.PRIVATE) &&
+      !m.mods.hasFlag(Flag.PROTECTED) &&
+      m.mods.hasFlag(Flag.DEFERRED)
   }
 
-  def dsl_impl(c: Context)(annottees: c.Expr[Any]*) = {
+  private def modifyClazz(c: MacroContext)(clazz: c.Tree) = {
+    import c.universe._
+    val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = clazz
+
+    def addImplicit(m: DefDef) = {
+      val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
+      def result(paramss: List[List[Tree]]) = q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr"
+
+      def implicitDSL = q"implicit val dsl: freedsl.dsl.Context"
+      def addImplicitParameterList = result(m.vparamss ++ List(List(implicitDSL)))
+
+      m.vparamss.lastOption match {
+        case Some(l) if !l.isEmpty =>
+          l.head match  {
+            case v: ValDef if v.mods.hasFlag(Flag.IMPLICIT) =>
+              result(m.vparamss.dropRight(1) ++ List(l ++ List(implicitDSL)))
+            case _ => addImplicitParameterList
+          }
+        case None => addImplicitParameterList
+      }
+    }
+
+    def noMethods = cstats.filter {
+      case m: DefDef => !abstractMethod(c)(m)
+      case _ => true
+    }
+
+    def methodsWithImplicit = cstats.collect { case m: DefDef if abstractMethod(c)(m) => m }.map(m => addImplicit(m))
+
+    q"""$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself =>
+           ..$noMethods
+           ..$methodsWithImplicit
+        }"""
+  }
+
+  def abstractDsl_impl(c: MacroContext)(annottees: c.Expr[Any]*): c.Expr[Any] = {
+    import c.universe._
+
+    annottees.map(_.tree) match {
+      case (typeClass: ClassDef) :: Nil => c.Expr(q"${modifyClazz(c)(typeClass)}")
+      case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil =>
+        c.Expr(q"""
+        ${modifyClazz(c)(typeClass)}
+        $companion""")
+      case other :: Nil =>
+        c.abort(
+          c.enclosingPosition,
+          "@adsl can only be applied to traits or abstract classes"
+        )
+    }
+  }
+
+
+  def dsl_impl(c: MacroContext)(annottees: c.Expr[Any]*) = {
     import c.universe._
 
     def generateCompanion(clazz: ClassDef, comp: Tree, containerType: TypeDef) = {
-      val dslObjectType = weakTypeOf[DSLObject]
-      val dslErrorType = weakTypeOf[freedsl.dsl.Error]
-      val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
-      val dslObjectIdentifierType = weakTypeOf[freedsl.dsl.DSLObjectIdentifier]
-
-      val instructionName = TypeName(c.freshName("Instruction"))
-
-      val q"$mods object $name extends ..$bases { ..$body }" = comp
-      val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = clazz
-
-      def abstractMethod(m: DefDef) =
-        !m.mods.hasFlag(Flag.PRIVATE) &&
-          !m.mods.hasFlag(Flag.PROTECTED) &&
-          m.mods.hasFlag(Flag.DEFERRED)
-
-      def collect(t: cstats.type) =
-        t.collect { case m: DefDef if abstractMethod(m) => m }
-
-      val abstractMethods = collect(cstats)
-
-      val caseClassesNames = abstractMethods.map {
-        m =>
-          def caseClassName(func: DefDef) = methodDefId(c)(func)
-          m -> caseClassName(m)
-      }.toMap
-
-      def caseClassArguments(func: DefDef) = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
-
-      def generateCaseClass(func: DefDef) = {
-        val params = caseClassArguments(func)
-        q"case class ${TypeName(caseClassesNames(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[$dslErrorType, ${func.tpt.children.drop(1).head}]]"
-      }
-
-      def generateInterpreterMethod(func: DefDef) = {
-        val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = func
-        val extractedRet = tq"${func.tpt.children.drop(1).head}"
-        q"$mods def $tname[..$tparams](...$paramss): Either[$dslErrorType, $extractedRet] = $expr"
-      }
-
-      def generateMapping(func: DefDef): CaseDef = {
-        //val valueName = TermName(c.freshName("value"))
-        val params = caseClassArguments(func).collect { case x: TermTree => val q"$n: $_" = x; TermName(n.toString) }
-
-        def args(all: List[List[ValDef]], acc: List[List[TermName]] = Nil, offset: Int = 0): List[List[TermName]] =
-          all match {
-            case Nil => acc.reverse
-            case h :: t =>
-              args(t, params.slice(offset, offset + h.size) :: acc, offset + h.size)
-          }
-
-        cq"comp.${TermName(caseClassesNames(func))}(..${params.map(p => pq"$p")}) => ${func.name}(...${args(func.vparamss)})"
-      }
 
 
-      val interpreterAbstractMethods = abstractMethods.map(m => generateInterpreterMethod(m))
-      val interpreterMapping = abstractMethods.map(m => generateMapping(m))
+      def modifiedCompanion(clazz: ClassDef) = {
+        val dslObjectType = weakTypeOf[DSLObject]
+        val dslErrorType = weakTypeOf[freedsl.dsl.Error]
+        val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
+        val dslObjectIdentifierType = weakTypeOf[freedsl.dsl.DSLObjectIdentifier]
 
-      val caseClasses = abstractMethods.map(c => generateCaseClass(c))
-      val objectIdentifier = UUID.randomUUID().toString
+        val instructionName = TypeName(c.freshName("Instruction"))
 
-      //val interpreterTargetType = TypeName(c.freshName("T"))
-      val interpreterInputType = TypeName(c.freshName("I"))
+        val q"$mods object $name extends ..$bases { ..$body }" = comp
+        val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = clazz
 
-      val modifiedCompanion = q"""
-        $mods object $name extends ..$bases with $dslObjectType { comp =>
-           import cats._
+        def collect(t: cstats.type) =
+          t.collect { case m: DefDef if abstractMethod(c)(m) => m }
 
-           type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
+        val abstractMethods = collect(cstats)
+        val caseClassesNames = abstractMethods.map {
+          m =>
+            def caseClassName(func: DefDef) = methodDefId(c)(func)
+            m -> caseClassName(m)
+        }.toMap
 
-           type TypeClass[..${clazz.tparams}] = ${clazz.name}[..${clazz.tparams.map(_.name)}]
+        def caseClassArguments(func: DefDef) = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
 
-           sealed trait ${instructionName}[T]
-           ..${caseClasses}
+        def generateCaseClass(func: DefDef) = {
+          val params = caseClassArguments(func)
+          q"case class ${TypeName(caseClassesNames(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[$dslErrorType, ${func.tpt.children.drop(1).head}]]"
+        }
 
-           type Error = $dslErrorType
+        def generateInterpreterMethod(func: DefDef) = {
+          val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = func
+          val extractedRet = tq"${func.tpt.children.drop(1).head}"
+          q"$mods def $tname[..$tparams](...$paramss): Either[$dslErrorType, $extractedRet] = $expr"
+        }
 
-           type I[T] = ${instructionName}[T]
-           type O[T] = Either[$dslErrorType, T]
-           type $interpreterInputType[T] = I[T]
+        def generateMapping(func: DefDef): CaseDef = {
+          //val valueName = TermName(c.freshName("value"))
+          val params = caseClassArguments(func).collect { case x: TermTree => val q"$n: $_" = x; TermName(n.toString) }
 
-           trait Interpreter extends cats.~>[$interpreterInputType, cats.Id] with $dslInterpreterType {
-             val companion: $name.type = comp
+          def args(all: List[List[ValDef]], acc: List[List[TermName]] = Nil, offset: Int = 0): List[List[TermName]] =
+            all match {
+              case Nil => acc.reverse
+              case h :: t =>
+                args(t, params.slice(offset, offset + h.size) :: acc, offset + h.size)
+            }
+
+          cq"comp.${TermName(caseClassesNames(func))}(..${params.map(p => pq"$p")}) => ${func.name}(...${args(func.vparamss)})"
+        }
+
+        val interpreterAbstractMethods = abstractMethods.map(m => generateInterpreterMethod(m))
+        val interpreterMapping = abstractMethods.map(m => generateMapping(m))
+
+        val caseClasses = abstractMethods.map(c => generateCaseClass(c))
+        val objectIdentifier = UUID.randomUUID().toString
+
+        //val interpreterTargetType = TypeName(c.freshName("T"))
+        val interpreterInputType = TypeName(c.freshName("I"))
+
+        q"""
+          $mods object $name extends ..$bases with $dslObjectType { comp =>
+             import cats._
+
              type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
 
-             ..$interpreterAbstractMethods
+             type TypeClass[..${clazz.tparams}] = ${clazz.name}[..${clazz.tparams.map(_.name)}]
 
-             def apply[A](a: $interpreterInputType[A]) = a match {
-               case ..${interpreterMapping}
+             sealed trait ${instructionName}[T]
+             ..${caseClasses}
+
+             type Error = $dslErrorType
+
+             type I[T] = ${instructionName}[T]
+             type O[T] = Either[$dslErrorType, T]
+             type $interpreterInputType[T] = I[T]
+
+             trait Interpreter extends cats.~>[$interpreterInputType, cats.Id] with $dslInterpreterType {
+               val companion: $name.type = comp
+               type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
+
+               ..$interpreterAbstractMethods
+
+               def apply[A](a: $interpreterInputType[A]) = a match {
+                 case ..${interpreterMapping}
+               }
              }
-           }
 
-           ..$body
-        }
-      """
+             ..$body
+          }
+        """
+      }
 
-//      println(modifiedCompanion)
+      val modifiedClazz = modifyClazz(c)(clazz)
 
       c.Expr(q"""
-        $clazz
-        $modifiedCompanion""")
+        $modifiedClazz
+        ${modifiedCompanion(modifiedClazz)}""")
     }
 
     def applicationConditionError =
@@ -195,18 +262,13 @@ package object dsl extends
 
   }
 
-  class dsl extends StaticAnnotation {
-    def macroTransform(annottees: Any*): Any = macro dsl_impl
-  }
-
-
-  def extractObjectIdentifier(c: Context)(t: c.universe.Tree) = {
+  def extractObjectIdentifier(c: MacroContext)(t: c.universe.Tree) = {
     val dslObjectIndentifierType = c.universe.weakTypeOf[freedsl.dsl.DSLObjectIdentifier]
     t.symbol.typeSignature.finalResultType.members.find(_.typeSignature.finalResultType <:< dslObjectIndentifierType).get.name.toString
   }
 
 
-  def context_impl(c: Context)(objects: c.Expr[freedsl.dsl.MergeableDSLObject]*): c.Expr[freedsl.dsl.MergedDSLObject] = {
+  def context_impl(c: MacroContext)(objects: c.Expr[freedsl.dsl.MergeableDSLObject]*): c.Expr[freedsl.dsl.MergedDSLObject] = {
 
     import c.universe._
 
@@ -320,7 +382,7 @@ package object dsl extends
   def merge(objects: freedsl.dsl.MergeableDSLObject*) = macro context_impl
 
 
-  def mergeInterpreters_impl(c: Context)(objects: c.Expr[freedsl.dsl.MergeableDSLInterpreter]*): c.Expr[freedsl.dsl.MergedDSLInterpreter] = {
+  def mergeInterpreters_impl(c: MacroContext)(objects: c.Expr[freedsl.dsl.MergeableDSLInterpreter]*): c.Expr[freedsl.dsl.MergedDSLInterpreter] = {
     import c.universe._
 
     val dslObjectType = weakTypeOf[DSLInterpreter]

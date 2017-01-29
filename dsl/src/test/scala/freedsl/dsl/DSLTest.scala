@@ -241,11 +241,11 @@ object DSLTest extends App {
 
   object DSLTest1M {
     def interpreter = new Interpreter {
-      def get = Right(1)
-      def set(i: Double) = Right(2)
-      def set(i: Int)(implicit j: Int) = Right(i * j)
-      def param[A](a: A) = Right(a)
-      def fails = Left(ItFailed("booo"))
+      def get(implicit context: Context) = Right(1)
+      def set(i: Double)(implicit context: Context) = Right(2)
+      def set(i: Int)(implicit j: Int, context: Context) = Right(i * j)
+      def param[A](a: A)(implicit context: Context) = Right(a)
+      def fails(implicit context: Context) = Left(ItFailed("booo"))
       override def terminate = Right(())
     }
 
@@ -264,11 +264,11 @@ object DSLTest extends App {
 
   object DSLTest2M {
     def interpreter = new Interpreter {
-      def get = Right("dsl2 is nice")
+      def get(implicit context: Context) = Right("dsl2 is nice")
     }
   }
 
-  trait AbstractDSL2[M[_], S] {
+  @adsl trait AbstractDSL2[M[_], S] {
     def get: M[S]
   }
 
@@ -279,7 +279,7 @@ object DSLTest extends App {
 
   object DSLTest3M {
     def interpreter = new Interpreter {
-      def test = Right(())
+      def test(implicit context: Context) = Right(())
     }
   }
 
@@ -315,19 +315,19 @@ object MultiLevelMerge extends App {
 
   object DSLTest1M {
     def interpreter = new Interpreter {
-      def get = Right("dsl1 is nice")
+      def get(implicit context: Context) = Right("dsl1 is nice")
     }
   }
 
   object DSLTest2M {
     def interpreter = new Interpreter {
-      def get = Right("dsl2 is nice")
+      def get(implicit context: Context) = Right("dsl2 is nice")
     }
   }
 
   object DSLTest3M {
     def interpreter = new Interpreter {
-      def get = Right("dsl3 is nice")
+      def get(implicit context: Context) = Right("dsl3 is nice")
     }
   }
 
