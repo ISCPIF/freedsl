@@ -15,10 +15,10 @@ import freedsl.dsl._
 object Random {
 
   def interpreter(random: util.Random) = new Interpreter {
-    def nextDouble = Right(random.nextDouble)
-    def nextInt(n: Int) => Right(random.nextInt(n))
-    def shuffle[A](s: Seq[A]) = Right(random.shuffle(s))
-    def fakeError = Left(FakeError("for some reason there was an error"))
+    def nextDouble(implicit context: Context) = random.nextDouble
+    def nextInt(n: Int)(implicit context: Context) = random.nextInt(n)
+    def shuffle[A](s: Seq[A])(implicit context: Context) = result(random.shuffle(s))
+    def fakeError(implicit context: Context) = failure(FakeError("for some reason there was an error"))
   }
 
   def interpreter(seed: Long): Interpreter = interpreter(new util.Random(seed))
@@ -169,7 +169,7 @@ resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven")
 // For scala 2.12, for 2.11 use Miles Sabin's plugin for type unification.
 scalacOptions := Seq("-Ypartial-unification")
 
-def freedslVersion = "0.5"
+def freedslVersion = "0.6"
 
 // pick a particular subproject
 libraryDependencies += "fr.iscpif.freedsl" %% "util" % freedslVersion,
