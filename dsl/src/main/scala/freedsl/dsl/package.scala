@@ -46,12 +46,21 @@ package object dsl extends
   trait MergedDSLInterpreter extends MergeableDSLInterpreter
 
   object Context {
-    implicit def implicitContext = new Context {}
+    implicit def implicitContext = new Context {
+      def success[T](t: T): Either[Error, T] = Right(t)
+      def failure[T](error: freedsl.dsl.Error): Either[Error, T] = Left(error)
+    }
+
+    def wrapError(c: Context)(f: Error => Error) = new Context {
+      import cats.syntax.all._
+      def success[T](t: T) = c.success(t)
+      def failure[T](error: freedsl.dsl.Error) = c.failure(error).leftMap(f)
+    }
   }
 
   trait Context {
-    def success[T](t: T): Either[Error, T] = Right(t)
-    def failure[T](error: freedsl.dsl.Error): Either[Error, T] = Left(error)
+    def success[T](t: T): Either[Error, T]
+    def failure[T](error: freedsl.dsl.Error): Either[Error, T]
   }
 
   def success[T](t: T)(implicit context: Context) = context.success(t)
