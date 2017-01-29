@@ -37,6 +37,7 @@ package object dsl extends
   trait MergedDSLObject extends MergeableDSLObject
 
   trait Error
+  case class DSLError(cause: Throwable) extends Error
   
   sealed trait MergeableDSLInterpreter
   trait DSLInterpreter extends MergeableDSLInterpreter {
@@ -47,7 +48,22 @@ package object dsl extends
   object Context {
     implicit def implicitContext = new Context {}
   }
-  trait Context
+
+  trait Context {
+    def success[T](t: T): Either[Error, T] = Right(t)
+    def failure[T](error: freedsl.dsl.Error): Either[Error, T] = Left(error)
+  }
+
+  def success[T](t: T)(implicit context: Context) = context.success(t)
+  def failure[T](error: freedsl.dsl.Error)(implicit context: Context) = context.failure(error)
+
+  implicit def result[T](t: => T)(implicit context: Context) =
+    util.Try(t) match {
+      case util.Success(v) => success(v)
+      case util.Failure(v) => failure(DSLError(v))
+    }
+
+
 
   class dsl extends StaticAnnotation {
     def macroTransform(annottees: Any*): Any = macro dsl_impl
@@ -86,7 +102,7 @@ package object dsl extends
       val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
       def result(paramss: List[List[Tree]]) = q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr"
 
-      def implicitDSL = q"implicit val dsl: freedsl.dsl.Context"
+      def implicitDSL = q"implicit val ${TermName(c.freshName("context"))}: freedsl.dsl.Context"
       def addImplicitParameterList = result(m.vparamss ++ List(List(implicitDSL)))
 
       m.vparamss.lastOption match {

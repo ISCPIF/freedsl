@@ -24,11 +24,11 @@ import freedsl.dsl._
 object Random {
 
   def interpreter(random: util.Random) = new Interpreter {
-    def nextDouble = Right(random.nextDouble)
-    def nextInt(n: Int) = Right(random.nextInt(n))
-    def nextBoolean = Right(random.nextBoolean())
-    def shuffle[A](s: Vector[A]) = Right(random.shuffle(s))
-    def use[T](f: util.Random => T) = Right(f(random))
+    def nextDouble(implicit context: Context) = random.nextDouble
+    def nextInt(n: Int)(implicit context: Context) = random.nextInt(n)
+    def nextBoolean(implicit context: Context) = random.nextBoolean()
+    def shuffle[A](s: Vector[A])(implicit context: Context) = result(random.shuffle(s))
+    def use[T](f: util.Random => T)(implicit context: Context) = f(random)
   }
 
   def interpreter(seed: Long): Interpreter = interpreter(new util.Random(seed))

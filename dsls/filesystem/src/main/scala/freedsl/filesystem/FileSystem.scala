@@ -18,14 +18,20 @@ object FileSystem {
   }
 
   def interpreter = new Interpreter {
-    def list(p: FileSystem.Path) =
-      Try(p.path.listFiles.toVector.map(Path.apply)).toEither.leftMap(e => FileError(s"Error listing directory $p", e))
-    def readStream[T](path: FileSystem.Path, f: InputStream => T) =
+    def list(p: FileSystem.Path)(implicit context: Context) =
+      Try(p.path.listFiles.toVector.map(Path.apply)) match {
+        case util.Success(r) => success(r)
+        case util.Failure(f) => failure(FileError(s"Error listing directory $p", f))
+      }
+    def readStream[T](path: FileSystem.Path, f: InputStream => T)(implicit context: Context) =
       Try {
         val is = new BufferedInputStream(new FileInputStream(path.path))
         try f(is)
         finally is.close
-      }.toEither.leftMap(e => FileError(s"Error reading file $path", e))
+      } match {
+        case util.Success(r) => success(r)
+        case util.Failure(f) => failure(FileError(s"Error reading file $path", f))
+      }
   }
 
   case class FileError(message: String, cause: Throwable) extends Exception(message, cause) with Error

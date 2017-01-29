@@ -241,12 +241,12 @@ object DSLTest extends App {
 
   object DSLTest1M {
     def interpreter = new Interpreter {
-      def get(implicit context: Context) = Right(1)
-      def set(i: Double)(implicit context: Context) = Right(2)
-      def set(i: Int)(implicit j: Int, context: Context) = Right(i * j)
-      def param[A](a: A)(implicit context: Context) = Right(a)
-      def fails(implicit context: Context) = Left(ItFailed("booo"))
-      override def terminate = Right(())
+      def get(implicit context: Context) = success(1)
+      def set(i: Double)(implicit context: Context) = success(2)
+      def set(i: Int)(implicit j: Int, context: Context) = success(i * j)
+      def param[A](a: A)(implicit context: Context) = success(a)
+      def fails(implicit context: Context) = failure(ItFailed("booo"))
+      override def terminate = success(())
     }
 
     case class FileNotFound(s: String) extends Error
@@ -264,7 +264,7 @@ object DSLTest extends App {
 
   object DSLTest2M {
     def interpreter = new Interpreter {
-      def get(implicit context: Context) = Right("dsl2 is nice")
+      def get(implicit context: Context) = success("dsl2 is nice")
     }
   }
 
@@ -279,7 +279,7 @@ object DSLTest extends App {
 
   object DSLTest3M {
     def interpreter = new Interpreter {
-      def test(implicit context: Context) = Right(())
+      def test(implicit context: Context) = success(())
     }
   }
 
@@ -315,19 +315,19 @@ object MultiLevelMerge extends App {
 
   object DSLTest1M {
     def interpreter = new Interpreter {
-      def get(implicit context: Context) = Right("dsl1 is nice")
+      def get(implicit context: Context) = success("dsl1 is nice")
     }
   }
 
   object DSLTest2M {
     def interpreter = new Interpreter {
-      def get(implicit context: Context) = Right("dsl2 is nice")
+      def get(implicit context: Context) = success("dsl2 is nice")
     }
   }
 
   object DSLTest3M {
     def interpreter = new Interpreter {
-      def get(implicit context: Context) = Right("dsl3 is nice")
+      def get(implicit context: Context) = success("dsl3 is nice")
     }
   }
 

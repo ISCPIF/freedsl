@@ -8,8 +8,8 @@ import squants._
 object System {
 
   def interpreter = new Interpreter {
-    def randomUUID = Right(UUID.randomUUID())
-    def sleep(d: Time) = Right(Thread.sleep(d.millis))
+    def randomUUID(implicit context: Context) = UUID.randomUUID()
+    def sleep(d: Time)(implicit context: Context) = Thread.sleep(d.millis)
   }
 
 }

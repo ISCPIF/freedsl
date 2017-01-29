@@ -23,10 +23,8 @@ import freedsl.dsl._
 object Log {
 
   def interpreter = new Interpreter {
-    def print(s: String) = Right(println(s))
+    def print(s: String)(implicit context: Context) = println(s)
   }
-
-  case class IOError(t: Throwable) extends Error
 
 }
 
