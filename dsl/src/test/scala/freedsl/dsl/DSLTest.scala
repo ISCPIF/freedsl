@@ -243,6 +243,7 @@ object DSLTest extends App {
     def interpreter = new Interpreter {
       def get(implicit context: Context) = success(1)
       def set(i: Double)(implicit context: Context) = success(2)
+      def setF(f: () => Int)(implicit context: Context) = success(f())
       def set(i: Int)(implicit j: Int, context: Context) = success(i * j)
       def param[A](a: A)(implicit context: Context) = success(a)
       def fails(implicit context: Context) = failure(ItFailed("booo"))
@@ -255,6 +256,7 @@ object DSLTest extends App {
 
   @dsl trait DSLTest1M[M[_]] {
     def get: M[Int]
+    def setF(f: () => Int): M[Int]
     def set(i: Double): M[Int]
     def set(i: Int)(implicit j: Int): M[Int]
     def param[A](a: A): M[A]

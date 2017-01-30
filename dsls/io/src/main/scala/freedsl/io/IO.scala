@@ -1,7 +1,5 @@
 package freedsl.io
 
-import cats._
-import cats.syntax.all._
 import freedsl.dsl._
 
 object IO {

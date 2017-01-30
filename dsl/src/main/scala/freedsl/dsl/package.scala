@@ -59,6 +59,12 @@ package object dsl extends
       case util.Failure(v) => failure(DSLError(v))
     }
 
+  def result[T](either: Either[Error, T])(implicit context: Context) =
+    either match {
+      case Right(v) => success(v)
+      case Left(v) => failure(v)
+    }
+
 
   /* ---------------- Annotations ----------------- */
 
@@ -92,19 +98,29 @@ package object dsl extends
 
   /* ----------- Internal dsl methods --------------- */
 
+  case class UniqueId(id: String) extends StaticAnnotation
 
   private def methodSymbolId(c: MacroContext)(m: c.universe.MethodSymbol) = {
     import c.universe._
-    methodId(c)(m.name, m.paramLists.map(_.map(t => tq"${t.typeSignature}")))
+
+    val uniqueId =
+        m.annotations.collect { case a if a.tree.tpe <:< weakTypeOf[UniqueId] =>
+          c.eval(c.Expr[UniqueId](c.untypecheck(a.tree))).id
+        }.head
+
+    uniqueId
   }
 
   private def methodDefId(c: MacroContext)(m: c.universe.DefDef) = {
     import c.universe._
-    methodId(c)(m.name, m.vparamss.map(_.map(t => tq"${t.tpt}")))
-  }
 
-  private def methodId(c: MacroContext)(name: c.Name, params: List[List[c.Tree]]) =
-    s"${name}_${Base64.getEncoder.encodeToString(s"$params".trim.getBytes)}"
+    val uniqueId =
+        m.mods.annotations.collect { case a if c.typecheck(a).tpe <:< weakTypeOf[UniqueId] =>
+          c.eval(c.Expr[UniqueId](c.untypecheck(a))).id
+        }.head
+
+    uniqueId
+  }
 
 
   def abstractMethod(c: MacroContext)(m: c.universe.DefDef) = {
@@ -118,9 +134,12 @@ package object dsl extends
     import c.universe._
     val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = clazz
 
-    def addImplicit(m: DefDef) = {
+    def modifyMethod(m: DefDef, uniqueName: String) = {
       val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
-      def result(paramss: List[List[Tree]]) = q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr"
+
+      val id = c.parse(s"""new freedsl.dsl.UniqueId("$uniqueName")""")
+      val newMods = m.mods.mapAnnotations(f => id :: f)
+      def result(paramss: List[List[Tree]]) = q"""$newMods def $tname[..$tparams](...$paramss): $tpt = $expr"""
 
       def implicitDSL = q"implicit val ${TermName(c.freshName("context"))}: freedsl.dsl.Context"
       def addImplicitParameterList = result(m.vparamss ++ List(List(implicitDSL)))
@@ -141,22 +160,31 @@ package object dsl extends
       case _ => true
     }
 
-    def methodsWithImplicit = cstats.collect { case m: DefDef if abstractMethod(c)(m) => m }.map(m => addImplicit(m))
+    def methodUniqueName(m: DefDef, i: Int) = s"${m.name}_$i"
+    val methodsWithImplicit = cstats.collect { case m: DefDef if abstractMethod(c)(m) => m }.zipWithIndex.map { case(m, i) =>
+      val uniqueName = methodUniqueName(m, i)
+      modifyMethod(m, uniqueName)
+    }
 
-    q"""$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself =>
-           ..$noMethods
-           ..$methodsWithImplicit
+    val modifiedClazz =
+      q"""$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself =>
+            ..$noMethods
+            ..$methodsWithImplicit
         }"""
+
+    modifiedClazz
   }
 
   def abstractDsl_impl(c: MacroContext)(annottees: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
     annottees.map(_.tree) match {
-      case (typeClass: ClassDef) :: Nil => c.Expr(q"${modifyClazz(c)(typeClass)}")
+      case (typeClass: ClassDef) :: Nil =>
+        c.Expr(q"${modifyClazz(c)(typeClass)}")
       case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil =>
+        val modifiedClazz = modifyClazz(c)(typeClass)
         c.Expr(q"""
-        ${modifyClazz(c)(typeClass)}
+        $modifiedClazz
         $companion""")
       case other :: Nil =>
         c.abort(
@@ -171,7 +199,6 @@ package object dsl extends
     import c.universe._
 
     def generateCompanion(clazz: ClassDef, comp: Tree, containerType: TypeDef) = {
-
 
       def modifiedCompanion(clazz: ClassDef) = {
         val dslObjectType = weakTypeOf[DSLObject]
@@ -208,7 +235,6 @@ package object dsl extends
         }
 
         def generateMapping(func: DefDef): CaseDef = {
-          //val valueName = TermName(c.freshName("value"))
           val params = caseClassArguments(func).collect { case x: TermTree => val q"$n: $_" = x; TermName(n.toString) }
 
           def args(all: List[List[ValDef]], acc: List[List[TermName]] = Nil, offset: Int = 0): List[List[TermName]] =
@@ -226,8 +252,6 @@ package object dsl extends
 
         val caseClasses = abstractMethods.map(c => generateCaseClass(c))
         val objectIdentifier = UUID.randomUUID().toString
-
-        //val interpreterTargetType = TypeName(c.freshName("T"))
         val interpreterInputType = TypeName(c.freshName("I"))
 
         q"""
@@ -337,9 +361,6 @@ package object dsl extends
           val returns = TypeTree(m.returnType)
           val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
 
-         // println("symbol: " + m.paramLists.map(_.map(t => tq"${t.typeSignature}")))
-          //println("symbol " + m.name + " " + methodSymbolId(c)(m))
-
           def caseClassName = TermName(methodSymbolId(c)(m))
 
           q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${caseClassName}(..${paramValues}).freek[I].onionX1[O] }"
@@ -351,6 +372,7 @@ package object dsl extends
             ..${funcs.map(f => generateFreekoImpl(f))}
           }
         }"""
+
         typeClass.typeParams.size match {
           case 1 => Some(q"implicit def ${TermName(c.freshName("impl"))} = $implem")
           case 0 => None
@@ -510,6 +532,6 @@ package object dsl extends
   }
 
   def merge(objects: freedsl.dsl.MergeableDSLInterpreter*) = macro mergeInterpreters_impl
-  
+
 
 }
