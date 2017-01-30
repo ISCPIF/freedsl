@@ -105,6 +105,8 @@ package object dsl extends
 
     val uniqueId =
         m.annotations.collect { case a if a.tree.tpe <:< weakTypeOf[UniqueId] =>
+          // UGLY !! It warms up the compiler and avoid an out of bounds exception in the linear optimizer... hopefully dotty is comming
+          util.Try { c.eval(c.Expr[UniqueId](c.untypecheck(a.tree))) }
           c.eval(c.Expr[UniqueId](c.untypecheck(a.tree))).id
         }.head
 
