@@ -201,7 +201,7 @@ package object dsl extends
     import c.universe._
 
     def generateCompanion(clazz: ClassDef, comp: Tree, containerType: TypeDef) = {
-
+      
       def modifiedCompanion(clazz: ClassDef) = {
         val dslObjectType = weakTypeOf[DSLObject]
         val dslErrorType = weakTypeOf[freedsl.dsl.Error]
@@ -291,9 +291,11 @@ package object dsl extends
 
       val modifiedClazz = modifyClazz(c)(clazz)
 
-      c.Expr(q"""
+      val res = c.Expr(q"""
         $modifiedClazz
         ${modifiedCompanion(modifiedClazz)}""")
+
+      res
     }
 
     def applicationConditionError =
@@ -331,7 +333,6 @@ package object dsl extends
 
 
   def context_impl(c: MacroContext)(objects: c.Expr[freedsl.dsl.MergeableDSLObject]*): c.Expr[freedsl.dsl.MergedDSLObject] = {
-
     import c.universe._
 
 
@@ -381,7 +382,9 @@ package object dsl extends
         }
       }
 
-      def mergedObjects = sortedObjects.zipWithIndex.map { case (o, i) => q"val ${TermName(s"mergedObject$i")} = $o" }
+      val mergedObjects = sortedObjects.zipWithIndex.map { case (o, i) => q"val ${TermName(s"mergedObject$i")} = $o" }
+      val caseClassMapping = sortedObjects.flatMap(o => implicitFunction(o))
+
 
       val res = c.Expr(
         q"""
@@ -401,7 +404,7 @@ package object dsl extends
 
           lazy val implicits = new {
             import freek._
-            ..${sortedObjects.flatMap(o => implicitFunction(o))}
+            ..$caseClassMapping
           }
        }
        new Context
@@ -431,16 +434,17 @@ package object dsl extends
     val dslObjects = dslObjectsP.toSeq.asInstanceOf[Seq[c.Expr[DSLObject]]]
     val mergedDSLObjects = mergedDSLObjectsP.toSeq.asInstanceOf[Seq[c.Expr[MergedDSLObject]]]
 
-    if(mergedDSLObjects.isEmpty) mergeDSLObjects(dslObjects)
-    else {
-      val innerMerged = extractInnerMergedObjects(mergedDSLObjects)
-      mergeDSLObjects(dslObjects ++ innerMerged)
-    }
+    val res =
+      if(mergedDSLObjects.isEmpty) mergeDSLObjects(dslObjects)
+      else {
+        val innerMerged = extractInnerMergedObjects(mergedDSLObjects)
+        mergeDSLObjects(dslObjects ++ innerMerged)
+      }
 
+    res
   }
 
   def merge(objects: freedsl.dsl.MergeableDSLObject*) = macro context_impl
-
 
   def mergeInterpreters_impl(c: MacroContext)(objects: c.Expr[freedsl.dsl.MergeableDSLInterpreter]*): c.Expr[freedsl.dsl.MergedDSLInterpreter] = {
     import c.universe._
@@ -470,7 +474,7 @@ package object dsl extends
 
       val interpreters = q"""List[$dslObjectType](..${stableTerms.map(o => q"$o")})"""
 
-      val res =
+      val res = c.Expr[MergedDSLInterpreter](
         q"""
       import scala.language.experimental.macros
       import freek._
@@ -504,9 +508,9 @@ package object dsl extends
         }
       }
 
-      new InterpretationContext()"""
+      new InterpretationContext()""")
 
-      c.Expr[MergedDSLInterpreter](res)
+      res
     }
 
     def extractInterpreters(mergedDSLInterpreter: c.Expr[MergedDSLInterpreter]): List[c.Expr[DSLInterpreter]] = {
@@ -529,8 +533,8 @@ package object dsl extends
       }
 
 
-    mergeInterpreters(extraction(objects.toList, List.empty))
-
+    val res = mergeInterpreters(extraction(objects.toList, List.empty))
+    res
   }
 
   def merge(objects: freedsl.dsl.MergeableDSLInterpreter*) = macro mergeInterpreters_impl
