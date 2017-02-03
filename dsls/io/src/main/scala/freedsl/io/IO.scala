@@ -27,7 +27,7 @@ object IO {
 
 @dsl trait IO[M[_]] {
   def run[A](f: () => A): M[A]
-  def apply[A](f: => A) = run(() => f)
+  def apply[A](f: => A)(implicit context: Context) = run(() => f)
   def exception(t: Throwable): M[Unit]
   def exceptionOrResult[A](either: Either[Throwable, A]): M[A]
   def errorMessage(e: String): M[Unit]
