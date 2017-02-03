@@ -133,29 +133,37 @@ package object dsl extends
       m.mods.hasFlag(Flag.DEFERRED)
   }
 
+
+
   private def modifyClazz(c: MacroContext)(clazz: c.Tree) = {
     import c.universe._
     val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = clazz
 
-    def modifyMethod(m: DefDef, uniqueName: String) = {
+    def addImplicitContext(m: c.universe.DefDef) = {
+      import c.universe._
       val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
-
-      val id = c.parse(s"""new freedsl.dsl.UniqueId("$uniqueName")""")
-      val newMods = m.mods.mapAnnotations(f => id :: f)
-      def result(paramss: List[List[Tree]]) = q"""$newMods def $tname[..$tparams](...$paramss): $tpt = $expr"""
-
       def implicitDSL = q"implicit val ${TermName(c.freshName("context"))}: freedsl.dsl.Context"
-      def addImplicitParameterList = result(m.vparamss ++ List(List(implicitDSL)))
+      def addImplicitParameterList = paramss ++ List(List(implicitDSL))
 
-      m.vparamss.lastOption match {
+      val newParamss = m.vparamss.lastOption match {
         case Some(l) if !l.isEmpty =>
           l.head match  {
             case v: ValDef if v.mods.hasFlag(Flag.IMPLICIT) =>
-              result(m.vparamss.dropRight(1) ++ List(l ++ List(implicitDSL)))
+              paramss.dropRight(1) ++ List(l ++ List(implicitDSL))
             case _ => addImplicitParameterList
           }
         case None => addImplicitParameterList
       }
+      q"""$mods def $tname[..$tparams](...$newParamss): $tpt = $expr"""
+    }
+
+    def modifyMethod(m: DefDef, uniqueName: String) = {
+      val withImplicitM = addImplicitContext(m)
+      val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = withImplicitM
+
+      val id = c.parse(s"""new freedsl.dsl.UniqueId("$uniqueName")""")
+      val newMods = m.mods.mapAnnotations(f => id :: f)
+      q"""$newMods def $tname[..$tparams](...$paramss): $tpt = $expr"""
     }
 
     def noMethods = cstats.filter {
