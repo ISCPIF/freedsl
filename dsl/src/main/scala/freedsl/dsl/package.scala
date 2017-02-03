@@ -52,6 +52,7 @@ package object dsl extends
 
   def success[T](t: T)(implicit context: Context) = context.success(t)
   def failure[T](error: freedsl.dsl.Error)(implicit context: Context) = context.failure(error)
+  def wrapError[T](f: Error => Error)(implicit context: Context) = Context.wrapError(context)(f)
 
   implicit def result[T](t: => T)(implicit context: Context) =
     util.Try(t) match {
@@ -201,7 +202,7 @@ package object dsl extends
     import c.universe._
 
     def generateCompanion(clazz: ClassDef, comp: Tree, containerType: TypeDef) = {
-      
+
       def modifiedCompanion(clazz: ClassDef) = {
         val dslObjectType = weakTypeOf[DSLObject]
         val dslErrorType = weakTypeOf[freedsl.dsl.Error]

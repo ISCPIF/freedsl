@@ -370,3 +370,31 @@ object MultiLevelMerge extends App {
   withInterpreters
   withDSL
 }
+
+object ErrorWrapping extends App {
+
+  object DSLTest1M {
+    def interpreter = new Interpreter {
+      def get(implicit context: Context) = failure(DSL1Error("dsl1 is nice"))
+    }
+
+    case class DSL1Error(s: String) extends Error
+  }
+
+  @dsl trait DSLTest1M[M[_]] {
+    def get: M[String]
+  }
+
+  case class WrapError(e: Error) extends Error
+
+  def prg[M[_]](implicit dSLTest1M: DSLTest1M[M]) = {
+    implicit def ctx = wrapError(e => WrapError(e))
+    dSLTest1M.get
+  }
+
+  val intp = merge(DSLTest1M.interpreter)
+  import intp.implicits._
+
+  println(intp.run(prg[intp.M]))
+
+}
