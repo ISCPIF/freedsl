@@ -33,7 +33,7 @@ package object dsl extends
   
 
   object Context {
-    implicit def implicitContext = new Context {
+    def instance = new Context {
       def success[T](t: T): Either[Error, T] = Right(t)
       def failure[T](error: freedsl.dsl.Error): Either[Error, T] = Left(error)
     }
@@ -92,7 +92,7 @@ package object dsl extends
 
   sealed trait MergeableDSLInterpreter
   trait DSLInterpreter extends MergeableDSLInterpreter {
-    def terminate: Either[Error, Unit] = Right(())
+    def terminate(implicit context: Context) : Either[Error, Unit] = Right(())
   }
   trait MergedDSLInterpreter extends MergeableDSLInterpreter
 
@@ -414,6 +414,7 @@ package object dsl extends
           lazy val implicits = new {
             import freek._
             ..$caseClassMapping
+            implicit val context = freedsl.dsl.Context.instance
           }
        }
        new Context
@@ -483,6 +484,8 @@ package object dsl extends
 
       val interpreters = q"""List[$dslObjectType](..${stableTerms.map(o => q"$o")})"""
 
+      val contextType = weakTypeOf[Context]
+
       val res = c.Expr[MergedDSLInterpreter](
         q"""
       import scala.language.experimental.macros
@@ -496,7 +499,7 @@ package object dsl extends
 
         lazy val implicits = merged.implicits
 
-        def run[T](program: M[T]) = {
+        def run[T](program: M[T])(implicit context: $contextType) = {
           def foldError(eithers: List[Either[$dslErrorTye, Unit]]): Either[$dslErrorTye, Unit] =
             eithers match {
               case Nil => Right(())

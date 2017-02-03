@@ -247,7 +247,7 @@ object DSLTest extends App {
       def set(i: Int)(implicit j: Int, context: Context) = success(i * j)
       def param[A](a: A)(implicit context: Context) = success(a)
       def fails(implicit context: Context) = failure(ItFailed("booo"))
-      override def terminate = success(())
+      override def terminate(implicit context: Context)  = success(())
     }
 
     case class FileNotFound(s: String) extends Error
@@ -292,7 +292,7 @@ object DSLTest extends App {
   import cats._
   import cats.implicits._
 
-  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: AbstractDSL2[M, String]) =
+  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: AbstractDSL2[M, String], context: Context) =
     for {
       i <- dslTest1M.get
       k <- dslTest1M.get
@@ -345,7 +345,7 @@ object MultiLevelMerge extends App {
     def get: M[String]
   }
 
-  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = dslTest1M.get
+  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M], context: Context) = dslTest1M.get
 
   def withInterpreters = {
     val merged1 = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)
@@ -387,7 +387,7 @@ object ErrorWrapping extends App {
 
   case class WrapError(e: Error) extends Error
 
-  def prg[M[_]](implicit dSLTest1M: DSLTest1M[M]) = {
+  def prg[M[_]](implicit dSLTest1M: DSLTest1M[M], context: Context) = {
     implicit def ctx = wrapError(e => WrapError(e))
     dSLTest1M.get
   }
