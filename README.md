@@ -155,6 +155,31 @@ interpreter.run(prg) match {
 }
 ```
 
+## Wrapping errors
+
+To return meaningful errors, it is sometimes necessary to wrap errors produced by side effects:
+
+```scala
+
+  object DSLTest1M {
+    def interpreter = new Interpreter {
+      def get(implicit context: Context) = failure(DSL1Error("Boooh"))
+    }
+
+    case class DSL1Error(s: String) extends Error
+  }
+
+  @dsl trait DSLTest1M[M[_]] {
+    def get: M[String]
+  }
+
+  case class WrapError(e: Error) extends Error
+
+  def prg[M[_]](implicit dSLTest1M: DSLTest1M[M], errorWrapping: ErrorWrapping[M]) = errorWrapping.wrap(e => WrapError(e)) {
+    dSLTest1M.get
+  }
+```
+
 ## Getting FreeDSL
 
 FreeDSL is published to [sonatype](https://oss.sonatype.org/).
@@ -169,7 +194,7 @@ resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven")
 // For scala 2.12, for 2.11 use Miles Sabin's plugin for type unification.
 scalacOptions := Seq("-Ypartial-unification")
 
-def freedslVersion = "0.6"
+def freedslVersion = "0.7"
 
 // pick a particular subproject
 libraryDependencies += "fr.iscpif.freedsl" %% "util" % freedslVersion,
