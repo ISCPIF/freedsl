@@ -38,7 +38,7 @@ package object dsl extends
       def failure[T](error: freedsl.dsl.Error): Either[Error, T] = Left(error)
     }
 
-    def wrapError(c: Context)(f: Error => Error) = new Context {
+    def wrapError(c: Context, f: Error => Error) = new Context {
       import cats.syntax.all._
       def success[T](t: T) = c.success(t)
       def failure[T](error: freedsl.dsl.Error) = c.failure(error).leftMap(f)
@@ -52,7 +52,13 @@ package object dsl extends
 
   def success[T](t: T)(implicit context: Context) = context.success(t)
   def failure[T](error: freedsl.dsl.Error)(implicit context: Context) = context.failure(error)
-  def wrapError[T](f: Error => Error)(implicit context: Context) = Context.wrapError(context)(f)
+
+  trait ErrorWrapping[M[_]] {
+    def wrap[T](f: Error => Error)(op: M[T]): M[T]
+  }
+
+  def wrapError[M[_]: ErrorWrapping, T](f: Error => Error)(op: M[T]) =
+    implicitly[ErrorWrapping[M]].wrap(f)(op)
 
   implicit def result[T](t: => T)(implicit context: Context) =
     util.Try(t) match {
@@ -65,7 +71,6 @@ package object dsl extends
       case Right(v) => success(v)
       case Left(v) => failure(v)
     }
-
 
   /* ---------------- Annotations ----------------- */
 
@@ -139,27 +144,8 @@ package object dsl extends
     import c.universe._
     val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = clazz
 
-    def addImplicitContext(m: c.universe.DefDef) = {
-      import c.universe._
-      val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
-      def implicitDSL = q"implicit val ${TermName(c.freshName("context"))}: freedsl.dsl.Context"
-      def addImplicitParameterList = paramss ++ List(List(implicitDSL))
-
-      val newParamss = m.vparamss.lastOption match {
-        case Some(l) if !l.isEmpty =>
-          l.head match  {
-            case v: ValDef if v.mods.hasFlag(Flag.IMPLICIT) =>
-              paramss.dropRight(1) ++ List(l ++ List(implicitDSL))
-            case _ => addImplicitParameterList
-          }
-        case None => addImplicitParameterList
-      }
-      q"""$mods def $tname[..$tparams](...$newParamss): $tpt = $expr"""
-    }
-
     def modifyMethod(m: DefDef, uniqueName: String) = {
-      val withImplicitM = addImplicitContext(m)
-      val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = withImplicitM
+      val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
 
       val id = c.parse(s"""new freedsl.dsl.UniqueId("$uniqueName")""")
       val newMods = m.mods.mapAnnotations(f => id :: f)
@@ -211,7 +197,7 @@ package object dsl extends
 
     def generateCompanion(clazz: ClassDef, comp: Tree, containerType: TypeDef) = {
 
-      def modifiedCompanion(clazz: ClassDef) = {
+      def modifyCompanion(clazz: ClassDef) = {
         val dslObjectType = weakTypeOf[DSLObject]
         val dslErrorType = weakTypeOf[freedsl.dsl.Error]
         val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
@@ -232,15 +218,35 @@ package object dsl extends
             m -> caseClassName(m)
         }.toMap
 
-        def caseClassArguments(func: DefDef) = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}"))
+        val contextName = TermName(c.freshName("context"))
+
+        def caseClassArguments(func: DefDef) = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}")) ++ Seq(q"$contextName: freedsl.dsl.Context")
 
         def generateCaseClass(func: DefDef) = {
           val params = caseClassArguments(func)
           q"case class ${TypeName(caseClassesNames(func))}[..${func.tparams}](..${params}) extends ${instructionName}[Either[$dslErrorType, ${func.tpt.children.drop(1).head}]]"
         }
 
+        def addImplicitContext(m: c.universe.DefDef) = {
+          import c.universe._
+          val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
+          def implicitDSL = q"implicit val ${TermName(c.freshName("context"))}: freedsl.dsl.Context"
+          def addImplicitParameterList = paramss ++ List(List(implicitDSL))
+
+          val newParamss = m.vparamss.lastOption match {
+            case Some(l) if !l.isEmpty =>
+              l.head match  {
+                case v: ValDef if v.mods.hasFlag(Flag.IMPLICIT) =>
+                  paramss.dropRight(1) ++ List(l ++ List(implicitDSL))
+                case _ => addImplicitParameterList
+              }
+            case None => addImplicitParameterList
+          }
+          q"""$mods def $tname[..$tparams](...$newParamss): $tpt = $expr"""
+        }
+
         def generateInterpreterMethod(func: DefDef) = {
-          val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = func
+          val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = addImplicitContext(func)
           val extractedRet = tq"${func.tpt.children.drop(1).head}"
           q"$mods def $tname[..$tparams](...$paramss): Either[$dslErrorType, $extractedRet] = $expr"
         }
@@ -255,7 +261,20 @@ package object dsl extends
                 args(t, params.slice(offset, offset + h.size) :: acc, offset + h.size)
             }
 
-          cq"comp.${TermName(caseClassesNames(func))}(..${params.map(p => pq"$p")}) => ${func.name}(...${args(func.vparamss)})"
+          val newVParamss = args(func.vparamss)
+          def addContextParameterList = newVParamss ++ List(List(contextName))
+
+          val newParamssWithContext = func.vparamss.lastOption match {
+            case Some(l) if !l.isEmpty =>
+              l.head match  {
+                case v: ValDef if v.mods.hasFlag(Flag.IMPLICIT) =>
+                  newVParamss.dropRight(1) ++ List(newVParamss.last ++ List(contextName))
+                case _ => addContextParameterList
+              }
+            case None => addContextParameterList
+          }
+
+          cq"comp.${TermName(caseClassesNames(func))}(..${params.map(p => pq"$p")}) => ${func.name}(...${newParamssWithContext})"
         }
 
         val interpreterAbstractMethods = abstractMethods.map(m => generateInterpreterMethod(m))
@@ -299,10 +318,11 @@ package object dsl extends
       }
 
       val modifiedClazz = modifyClazz(c)(clazz)
+      val modifiedCompanion = modifyCompanion(modifiedClazz)
 
       val res = c.Expr(q"""
         $modifiedClazz
-        ${modifiedCompanion(modifiedClazz)}""")
+        $modifiedCompanion""")
 
       res
     }
@@ -352,7 +372,8 @@ package object dsl extends
 
       val I = sortedObjects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"freek.:|:[$o1, $o2]": Tree)
 
-      val mType = q"type M[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]"
+      val contextType = weakTypeOf[Context]
+
 
       def implicitFunction(o: c.Expr[Any]) = {
         val typeClass = {
@@ -374,8 +395,13 @@ package object dsl extends
           val paramValues = paramss.flatMap(_.map(p => q"${p.name.toTermName}"))
 
           def caseClassName = TermName(methodSymbolId(c)(m))
+          val contextName = TermName(c.freshName("context"))
 
-          q"def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] = { ${o}.${caseClassName}(..${paramValues}).freek[I].onionX1[O] }"
+          q"""def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] =
+             cats.data.StateT { $contextName: $contextType =>
+               (${o}.${caseClassName}(..${paramValues}, $contextName).freek[I].onionX1[O]: ON[..${returns.tpe.typeArgs}]).map(a => ($contextName, a))
+             }
+            """
         }
 
         val implem =
@@ -395,6 +421,17 @@ package object dsl extends
       val caseClassMapping = sortedObjects.flatMap(o => implicitFunction(o))
 
 
+      val errorWrapping = q"""
+        implicit def errorWraping = new freedsl.dsl.ErrorWrapping[M] {
+          def wrap[T](f: Error => Error)(op: M[T]) = for {
+            context <- cats.data.StateT.get[ON, freedsl.dsl.Context]
+            _ <- cats.data.StateT.set[ON, freedsl.dsl.Context](freedsl.dsl.Context.wrapError(context, f))
+            result <- op
+            _ <- cats.data.StateT.set[ON, freedsl.dsl.Context](context)
+          } yield result
+        }
+        """
+
       val res = c.Expr(
         q"""
         class Context extends freedsl.dsl.MergedDSLObject { self =>
@@ -409,11 +446,13 @@ package object dsl extends
           type O = OL :&: Bulb
 
           val DSLInstance = freek.DSL.Make[I]
-          $mType
+          type ON[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
+          type M[T] = cats.data.StateT[ON, $contextType, T]
 
           lazy val implicits = new {
             import freek._
             ..$caseClassMapping
+            $errorWrapping
             implicit val context = freedsl.dsl.Context.instance
           }
        }
@@ -511,7 +550,8 @@ package object dsl extends
             }
 
           lazy val interpreter = $freekInterpreter
-          val res = program.value.interpret(interpreter)
+          val res = program.runA(context).value.interpret(interpreter)
+
           val termination = foldError($interpreters.map(_.terminate))
           for {
             v <- res
@@ -521,6 +561,8 @@ package object dsl extends
       }
 
       new InterpretationContext()""")
+
+      //println(res)
 
       res
     }
