@@ -348,7 +348,7 @@ package object dsl extends
       val I = sortedObjects.map(o => tq"${o}.I").foldRight(tq"freek.NilDSL": Tree)((o1, o2) => tq"freek.:|:[$o1, $o2]": Tree)
 
       val contextType = weakTypeOf[Context]
-
+      val onionTypeName = TypeName("ONION")
 
       def implicitFunction(o: c.Expr[Any]) = {
         val typeClass = {
@@ -374,7 +374,7 @@ package object dsl extends
 
           q"""def ${m.name}[..${typeParams}](...${paramss}): M[..${returns.tpe.typeArgs}] =
              cats.data.StateT { $contextName: $contextType =>
-               (${o}.${caseClassName}(..${paramValues}, $contextName).freek[I].onionX1[O]: ON[..${returns.tpe.typeArgs}]).map(a => ($contextName, a))
+               (${o}.${caseClassName}(..${paramValues}, $contextName).freek[I].onionX1[O]: $onionTypeName[..${returns.tpe.typeArgs}]).map(a => ($contextName, a))
              }
             """
         }
@@ -395,21 +395,21 @@ package object dsl extends
       val mergedObjects = sortedObjects.zipWithIndex.map { case (o, i) => q"val ${TermName(s"mergedObject$i")} = $o" }
       val caseClassMapping = sortedObjects.flatMap(o => implicitFunction(o))
 
-
+      val errorType = weakTypeOf[freedsl.dsl.Error]
       val errorWrapping = q"""
         implicit def errorWraping = new freedsl.dsl.ErrorWrapping[M] {
-          def wrap[T](f: Error => Error)(op: M[T]) = for {
-            context <- cats.data.StateT.get[ON, freedsl.dsl.Context]
-            _ <- cats.data.StateT.set[ON, freedsl.dsl.Context](freedsl.dsl.Context.wrapError(context, f))
+          def wrap[T](f: $errorType => $errorType)(op: M[T]) = for {
+            context <- cats.data.StateT.get[$onionTypeName, freedsl.dsl.Context]
+            _ <- cats.data.StateT.set[$onionTypeName, freedsl.dsl.Context](freedsl.dsl.Context.wrapError(context, f))
             result <- op
-            _ <- cats.data.StateT.set[ON, freedsl.dsl.Context](context)
+            _ <- cats.data.StateT.set[$onionTypeName, freedsl.dsl.Context](context)
           } yield result
         }
         """
 
       val res = c.Expr(
         q"""
-        class Context extends freedsl.dsl.MergedDSLObject { self =>
+        class MergedDSL extends freedsl.dsl.MergedDSLObject { self =>
           ..$mergedObjects
 
           import freek._
@@ -421,17 +421,17 @@ package object dsl extends
           type O = OL :&: Bulb
 
           val DSLInstance = freek.DSL.Make[I]
-          type ON[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
-          type M[T] = cats.data.StateT[ON, $contextType, T]
+          type $onionTypeName[T] = freek.OnionT[cats.free.Free, DSLInstance.Cop, O, T]
+          type M[T] = cats.data.StateT[$onionTypeName, $contextType, T]
 
           lazy val implicits = new {
             import freek._
             ..$caseClassMapping
             $errorWrapping
-            implicit val context = freedsl.dsl.Context.instance
+            implicit def ${TermName(c.freshName("context"))}: $contextType = freedsl.dsl.Context.instance
           }
        }
-       new Context
+       new MergedDSL
       """)
 
       res
@@ -498,6 +498,7 @@ package object dsl extends
 
       val interpreters = q"""List[$dslObjectType](..${stableTerms.map(o => q"$o")})"""
 
+      val contextName = TermName(c.freshName("context"))
       val contextType = weakTypeOf[Context]
 
       val res = c.Expr[MergedDSLInterpreter](
@@ -513,7 +514,7 @@ package object dsl extends
 
         lazy val implicits = merged.implicits
 
-        def run[T](program: M[T])(implicit context: $contextType) = {
+        def run[T](program: M[T])(implicit $contextName: $contextType) = {
           def foldError(eithers: List[Either[$dslErrorTye, Unit]]): Either[$dslErrorTye, Unit] =
             eithers match {
               case Nil => Right(())
@@ -525,9 +526,9 @@ package object dsl extends
             }
 
           lazy val interpreter = $freekInterpreter
-          val res = program.runA(context).value.interpret(interpreter)
+          val res = program.runA($contextName).value.interpret(interpreter)
 
-          val termination = foldError($interpreters.map(_.terminate))
+          val termination = foldError($interpreters.map(_.terminate($contextName)))
           for {
             v <- res
             _ <- termination
@@ -536,8 +537,6 @@ package object dsl extends
       }
 
       new InterpretationContext()""")
-
-      //println(res)
 
       res
     }

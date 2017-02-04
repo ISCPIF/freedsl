@@ -361,10 +361,11 @@ object MultiLevelMerge extends App {
     val merged2 = merge(DSLTest3M, DSLTest2M)
     val merged3 = merge(merged1, merged2, DSLTest3M)
 
+    import merged3._
     import merged3.implicits._
 
     val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
-    println(intp.run(prg[merged3.M]))
+    println(intp.run(prg[M]))
   }
 
   withInterpreters
@@ -375,7 +376,7 @@ object ErrorWrapping extends App {
 
   object DSLTest1M {
     def interpreter = new Interpreter {
-      def get(implicit context: Context) = failure(DSL1Error("dsl1 is nice"))
+      def get(implicit context: Context) = failure(DSL1Error("Boooh"))
     }
 
     case class DSL1Error(s: String) extends Error

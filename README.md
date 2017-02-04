@@ -50,10 +50,10 @@ import freedsl.log._
 import squants.time.TimeConversions._
 
 // Pure functions that describe computations depending on side effects
-def randomData[M[_]](implicit randomM: Random[M], context: Context): M[Seq[Int]] =
+def randomData[M[_]](implicit randomM: Random[M]): M[Seq[Int]] =
   randomM.shuffle(Seq(1, 2, 2, 3, 3, 3))
 
-def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M], logM: Log[M], context: Context): M[Unit] = for {
+def randomSleep[M[_]: Monad](implicit randomM: Random[M], utilM: Util[M], logM: Log[M]): M[Unit] = for {
   s <- randomM.nextInt(10)
   _ <- logM.print(s"Sleeping for $s seconds")
   _ <- utilM.sleep(s seconds)
