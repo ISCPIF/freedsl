@@ -270,7 +270,7 @@ object DSLTest extends App {
     }
   }
 
-  @adsl trait AbstractDSL2[M[_], S] {
+  trait AbstractDSL2[M[_], S] {
     def get: M[S]
   }
 
@@ -311,65 +311,65 @@ object DSLTest extends App {
 }
 
 
-//
-//object MultiLevelMerge extends App {
-//  import cats._
-//
-//  object DSLTest1M {
-//    def interpreter = new Interpreter {
-//      def get(implicit context: Context) = success("dsl1 is nice")
-//    }
-//  }
-//
-//  object DSLTest2M {
-//    def interpreter = new Interpreter {
-//      def get(implicit context: Context) = success("dsl2 is nice")
-//    }
-//  }
-//
-//  object DSLTest3M {
-//    def interpreter = new Interpreter {
-//      def get(implicit context: Context) = success("dsl3 is nice")
-//    }
-//  }
-//
-//  @dsl trait DSLTest1M[M[_]] {
-//    def get: M[String]
-//  }
-//
-//  @dsl trait DSLTest2M[M[_]] {
-//    def get: M[String]
-//  }
-//
-//  @dsl trait DSLTest3M[M[_]] {
-//    def get: M[String]
-//  }
-//
-//  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = dslTest1M.get
-//
-//  def withInterpreters = {
-//    val merged1 = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)
-//    val merged3 = merge(merged1, DSLTest3M.interpreter)
-//
-//    import merged3.implicits._
-//    println(merged3.run(prg[merged3.M]))
-//  }
-//
-//
-//  def withDSL = {
-//    val merged1 = merge(DSLTest1M, DSLTest2M)
-//    val merged2 = merge(DSLTest3M, DSLTest2M)
-//    val merged3 = merge(merged1, merged2, DSLTest3M)
-//
-//    import merged3.implicits._
-//
-//    val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
-//    println(intp.run(prg[merged3.M]))
-//  }
-//
-//  withInterpreters
-//  withDSL
-//}
+
+object MultiLevelMerge extends App {
+  import cats._
+
+  object DSLTest1M {
+    def interpreter = new Interpreter {
+      def get(implicit context: Context) = success("dsl1 is nice")
+    }
+  }
+
+  object DSLTest2M {
+    def interpreter = new Interpreter {
+      def get(implicit context: Context) = success("dsl2 is nice")
+    }
+  }
+
+  object DSLTest3M {
+    def interpreter = new Interpreter {
+      def get(implicit context: Context) = success("dsl3 is nice")
+    }
+  }
+
+  @dsl trait DSLTest1M[M[_]] {
+    def get: M[String]
+  }
+
+  @dsl trait DSLTest2M[M[_]] {
+    def get: M[String]
+  }
+
+  @dsl trait DSLTest3M[M[_]] {
+    def get: M[String]
+  }
+
+  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = dslTest1M.get
+
+  def withInterpreters = {
+    val merged1 = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)
+    val merged3 = merge(merged1, DSLTest3M.interpreter)
+
+    import merged3.implicits._
+    println(merged3.run(prg[merged3.M]))
+  }
+
+
+  def withDSL = {
+    val merged1 = merge(DSLTest1M, DSLTest2M)
+    val merged2 = merge(DSLTest3M, DSLTest2M)
+    val merged3 = merge(merged1, merged2, DSLTest3M)
+
+    import merged3.implicits._
+
+    val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
+    println(intp.run(prg[merged3.M]))
+  }
+
+  withInterpreters
+  withDSL
+}
 
 object ErrorWrapping extends App {
 

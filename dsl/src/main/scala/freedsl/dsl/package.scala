@@ -78,11 +78,6 @@ package object dsl extends
     def macroTransform(annottees: Any*): Any = macro dsl_impl
   }
 
-  class adsl extends StaticAnnotation {
-    def macroTransform(annottees: Any*): Any = macro abstractDsl_impl
-  }
-
-
   /* ------------------- DSL types ----------------- */
 
   trait DSLObjectIdentifier
@@ -171,26 +166,6 @@ package object dsl extends
 
     modifiedClazz
   }
-
-  def abstractDsl_impl(c: MacroContext)(annottees: c.Expr[Any]*): c.Expr[Any] = {
-    import c.universe._
-
-    annottees.map(_.tree) match {
-      case (typeClass: ClassDef) :: Nil =>
-        c.Expr(q"${modifyClazz(c)(typeClass)}")
-      case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil =>
-        val modifiedClazz = modifyClazz(c)(typeClass)
-        c.Expr(q"""
-        $modifiedClazz
-        $companion""")
-      case other :: Nil =>
-        c.abort(
-          c.enclosingPosition,
-          "@adsl can only be applied to traits or abstract classes"
-        )
-    }
-  }
-
 
   def dsl_impl(c: MacroContext)(annottees: c.Expr[Any]*) = {
     import c.universe._
