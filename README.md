@@ -3,7 +3,7 @@
 
 ## Overview
 
-FreeDSL is a library for pure composition of side effects, weaving typeclasses on a wrapping type and [Freek]()'s compositions features for the Free Monad.
+FreeDSL is a library for pure composition of side effects, weaving typeclasses on an abstract wrapping type and the Free Monad.
 
 ## Examples
 
