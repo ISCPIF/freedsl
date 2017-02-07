@@ -42,6 +42,7 @@ object FileSystem {
 @dsl trait FileSystem[M[_]] {
   def list(path: FileSystem.Path): M[Vector[FileSystem.Path]]
   def readStream[T](path: FileSystem.Path, f: InputStream => T): M[T]
+  def read(path: FileSystem.Path): M[String] = readStream(path, is ⇒ io.Source.fromInputStream(is).mkString)
 }
 
 
