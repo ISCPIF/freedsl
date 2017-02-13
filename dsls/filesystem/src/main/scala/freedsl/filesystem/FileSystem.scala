@@ -23,7 +23,7 @@ object FileSystem {
         case util.Success(r) => success(r)
         case util.Failure(f) => failure(FileError(s"Error listing directory $p", f))
       }
-    def readStream[T](path: FileSystem.Path, f: InputStream => T)(implicit context: Context) =
+    def readStream[T](path: FileSystem.Path)(f: InputStream => T)(implicit context: Context) =
       Try {
         val is = new BufferedInputStream(new FileInputStream(path.path))
         try f(is)
@@ -41,8 +41,8 @@ object FileSystem {
 
 @dsl trait FileSystem[M[_]] {
   def list(path: FileSystem.Path): M[Vector[FileSystem.Path]]
-  def readStream[T](path: FileSystem.Path, f: InputStream => T): M[T]
-  def read(path: FileSystem.Path): M[String] = readStream(path, is ⇒ io.Source.fromInputStream(is).mkString)
+  def readStream[T](path: FileSystem.Path)(f: InputStream => T): M[T]
+  def read(path: FileSystem.Path): M[String] = readStream(path)(is ⇒ io.Source.fromInputStream(is).mkString)
 }
 
 
