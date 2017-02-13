@@ -265,7 +265,7 @@ package object dsl extends
 
              type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
 
-             type TypeClass[..${clazz.tparams}] = ${clazz.name}[..${clazz.tparams.map(_.name)}]
+             type TypeClass[..${clazz.tparams}] = ${c.typecheck(clazz).symbol}[..${clazz.tparams.map(_.name)}]
 
              sealed trait ${instructionName}[T]
              ..${caseClasses}
