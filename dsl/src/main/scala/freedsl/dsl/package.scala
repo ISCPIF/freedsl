@@ -257,7 +257,9 @@ package object dsl extends
         val caseClasses = abstractMethods.map(c => generateCaseClass(c))
         val objectIdentifier = UUID.randomUUID().toString
         val interpreterInputType = TypeName(c.freshName("I"))
-        val typeClassName = clazz.name
+
+        val packageName = c.typecheck(q"type Test").symbol.owner.fullName
+        val typeClassName = tq"""${c.parse(packageName)}.${clazz.name}"""
 
         q"""
           $mods object $name extends ..$bases with $dslObjectType { comp =>
