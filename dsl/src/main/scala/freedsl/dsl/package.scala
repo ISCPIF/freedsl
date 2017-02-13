@@ -106,9 +106,8 @@ package object dsl extends
 
     val uniqueId =
         m.annotations.collect { case a if a.tree.tpe <:< weakTypeOf[UniqueId] =>
-          // UGLY !! It warms up the compiler and avoid an out of bounds exception in the linear optimizer... hopefully dotty is comming
-          util.Try { c.eval(c.Expr[UniqueId](c.untypecheck(a.tree))) }
-          c.eval(c.Expr[UniqueId](c.untypecheck(a.tree))).id
+          val code = c.parse(a.tree.toString())
+          c.eval(c.Expr[UniqueId](code)).id
         }.head
 
     uniqueId
@@ -119,7 +118,8 @@ package object dsl extends
 
     val uniqueId =
         m.mods.annotations.collect { case a if c.typecheck(a).tpe <:< weakTypeOf[UniqueId] =>
-          c.eval(c.Expr[UniqueId](c.untypecheck(a))).id
+          val code = c.parse(a.toString())
+          c.eval(c.Expr[UniqueId](code)).id
         }.head
 
     uniqueId
@@ -133,11 +133,9 @@ package object dsl extends
       m.mods.hasFlag(Flag.DEFERRED)
   }
 
-
-
-  private def modifyClazz(c: MacroContext)(clazz: c.Tree) = {
+  private def modifyClazz(c: MacroContext)(typeClazz: c.Tree) = {
     import c.universe._
-    val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = clazz
+    val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = typeClazz
 
     def modifyMethod(m: DefDef, uniqueName: String) = {
       val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
@@ -170,7 +168,7 @@ package object dsl extends
   def dsl_impl(c: MacroContext)(annottees: c.Expr[Any]*) = {
     import c.universe._
 
-    def generateCompanion(clazz: ClassDef, comp: Tree, containerType: TypeDef) = {
+    def generateCompanion(typeClazz: ClassDef, comp: Tree, containerType: TypeDef) = {
 
       def modifyCompanion(clazz: ClassDef) = {
         val dslObjectType = weakTypeOf[DSLObject]
@@ -187,6 +185,7 @@ package object dsl extends
           t.collect { case m: DefDef if abstractMethod(c)(m) => m }
 
         val abstractMethods = collect(cstats)
+
         val caseClassesNames = abstractMethods.map {
           m =>
             def caseClassName(func: DefDef) = methodDefId(c)(func)
@@ -258,6 +257,7 @@ package object dsl extends
         val caseClasses = abstractMethods.map(c => generateCaseClass(c))
         val objectIdentifier = UUID.randomUUID().toString
         val interpreterInputType = TypeName(c.freshName("I"))
+        val typeClassName = clazz.name
 
         q"""
           $mods object $name extends ..$bases with $dslObjectType { comp =>
@@ -265,7 +265,7 @@ package object dsl extends
 
              type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
 
-             type TypeClass[..${clazz.tparams}] = ${c.typecheck(clazz).symbol}[..${clazz.tparams.map(_.name)}]
+             type TypeClass[..${clazz.tparams}] = $typeClassName[..${clazz.tparams.map(_.name)}]
 
              sealed trait ${instructionName}[T]
              ..${caseClasses}
@@ -292,7 +292,7 @@ package object dsl extends
         """
       }
 
-      val modifiedClazz = modifyClazz(c)(clazz)
+      val modifiedClazz = modifyClazz(c)(typeClazz)
       val modifiedCompanion = modifyCompanion(modifiedClazz)
 
       val res = c.Expr(q"""
