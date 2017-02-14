@@ -258,7 +258,11 @@ package object dsl extends
         val objectIdentifier = UUID.randomUUID().toString
         val interpreterInputType = TypeName(c.freshName("I"))
 
-        val packageName = c.typecheck(q"type Test").symbol.owner.fullName
+        val packageName = {
+          val typeChecked = c.typecheck(q"type Test").symbol.owner.fullName
+          if(typeChecked.endsWith(".package")) typeChecked.dropRight(".package".length) else typeChecked
+        }
+
         val typeClassName = tq"""${c.parse(packageName)}.${clazz.name}"""
 
         q"""
