@@ -47,7 +47,7 @@ lazy val log = Project(id = "log", base = file("dsls/log")).settings(settings: _
 lazy val system = Project(id = "system", base = file("dsls/system")).settings(settings: _*) dependsOn(dsl)
 lazy val io = Project(id = "io", base = file("dsls/io")).settings(settings: _*) dependsOn(dsl)
 lazy val filesystem = Project(id = "filesystem", base = file("dsls/filesystem")).settings(settings: _*) dependsOn(dsl)
-lazy val error = Project(id = "error", base = file("dsls/error")).settings(settings: _*) dependsOn(dsl)
+lazy val error = Project(id = "errorhandle", base = file("dsls/errorhandle")).settings(settings: _*) dependsOn(dsl)
 
 lazy val tool = Project(id = "tool", base = file("tool")).settings(settings: _*)
 

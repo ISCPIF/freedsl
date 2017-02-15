@@ -1,8 +1,8 @@
-package freedsl.error
+package freedsl.errorhandle
 
 import freedsl.dsl._
 
-object Error {
+object ErrorHandle {
 
   def interpreter = new Interpreter {
     def exception(t: Throwable)(implicit context: Context) = failure(RuntimeError(t))
@@ -23,7 +23,7 @@ object Error {
   case class RuntimeError(e: Throwable) extends Exception(e.getMessage, e) with freedsl.dsl.Error
 }
 
-@dsl trait Error[M[_]] {
+@dsl trait ErrorHandle[M[_]] {
   def exception(t: Throwable): M[Unit]
   def exceptionOrResult[A](either: Either[Throwable, A]): M[A]
   def errorMessage(e: String): M[Unit]
