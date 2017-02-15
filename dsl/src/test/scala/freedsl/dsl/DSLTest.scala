@@ -308,13 +308,9 @@ object DSLTest extends App {
   val intp = merge(DSLTest1M.interpreter, DSLTest2M.interpreter, DSLTest3M.interpreter)
   import intp.implicits._
 
-  intp.run(prg[intp.M]) match {
-    case Right(v) => println(v)
-    case Left(e) => println("Error: " + e)
-  }
+  println(intp.run(prg[intp.M]))
 
 }
-
 
 
 object MultiLevelMerge extends App {

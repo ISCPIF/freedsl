@@ -28,8 +28,8 @@ package object dsl extends
 
   /* --------- Error and context managment ---------- */
 
-  trait Error
-  case class DSLError(cause: Throwable) extends Error
+  trait Error extends Throwable
+  case class DSLError(cause: Throwable) extends Exception(cause) with Error
   
 
   object Context {
@@ -71,6 +71,16 @@ package object dsl extends
       case Right(v) => success(v)
       case Left(v) => failure(v)
     }
+
+
+  implicit class EitherToTry[T](e: Either[Throwable, T]) {
+    def toTry: util.Try[T] = e match {
+      case Right(v) => util.Success(v)
+      case Left(e) => util.Failure(e)
+    }
+  }
+
+  //implicit def eitherToTry[T](e: Either[Throwable, T]) = e.toTry
 
   /* ---------------- Annotations ----------------- */
 
