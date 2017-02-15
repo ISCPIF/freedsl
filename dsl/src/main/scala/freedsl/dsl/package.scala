@@ -113,17 +113,17 @@ package object dsl extends
     uniqueId
   }
 
-  private def methodDefId(c: MacroContext)(m: c.universe.DefDef) = {
-    import c.universe._
-
-    val uniqueId =
-        m.mods.annotations.collect { case a if c.typecheck(a).tpe <:< weakTypeOf[UniqueId] =>
-          val code = c.parse(a.toString())
-          c.eval(c.Expr[UniqueId](code)).id
-        }.head
-
-    uniqueId
-  }
+//  private def methodDefId(c: MacroContext)(m: c.universe.DefDef) = {
+//    import c.universe._
+//
+//    val uniqueId =
+//        m.mods.annotations.collect { case a if c.typecheck(a).tpe <:< weakTypeOf[UniqueId] =>
+//          val code = c.parse(a.toString())
+//          c.eval(c.Expr[UniqueId](code)).id
+//        }.head
+//
+//    uniqueId
+//  }
 
 
   def abstractMethod(c: MacroContext)(m: c.universe.DefDef) = {
@@ -133,7 +133,7 @@ package object dsl extends
       m.mods.hasFlag(Flag.DEFERRED)
   }
 
-  private def modifyClazz(c: MacroContext)(typeClazz: c.Tree) = {
+  private def annotateClazz(c: MacroContext)(typeClazz: c.Tree) = {
     import c.universe._
     val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = typeClazz
 
@@ -142,27 +142,30 @@ package object dsl extends
 
       val id = c.parse(s"""new freedsl.dsl.UniqueId("$uniqueName")""")
       val newMods = m.mods.mapAnnotations(f => id :: f)
+
       q"""$newMods def $tname[..$tparams](...$paramss): $tpt = $expr"""
     }
 
-    def noMethods = cstats.filter {
-      case m: DefDef => !abstractMethod(c)(m)
-      case _ => true
+    val (absMethods, otherMethods) = cstats.partition {
+      case m: DefDef => abstractMethod(c)(m)
+      case _ => false
     }
 
     def methodUniqueName(m: DefDef, i: Int) = s"${m.name}_$i"
-    val methodsWithImplicit = cstats.collect { case m: DefDef if abstractMethod(c)(m) => m }.zipWithIndex.map { case(m, i) =>
-      val uniqueName = methodUniqueName(m, i)
-      modifyMethod(m, uniqueName)
-    }
+
+    val (annotatedMethods, methodMap) =
+      cstats.collect { case m: DefDef if abstractMethod(c)(m) => m }.zipWithIndex.map { case(m, i) =>
+        val uniqueName = methodUniqueName(m, i)
+        val modifiedMethod = modifyMethod(m, uniqueName)
+        (modifiedMethod, m -> uniqueName)
+      }.unzip
 
     val modifiedClazz =
-      q"""$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself =>
-            ..$noMethods
-            ..$methodsWithImplicit
-        }"""
+      q"""trait AnnotatedTypeClass[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself =>
+          ..$annotatedMethods
+         }"""
 
-    modifiedClazz
+    (modifiedClazz, methodMap.toMap)
   }
 
   def dsl_impl(c: MacroContext)(annottees: c.Expr[Any]*) = {
@@ -171,6 +174,8 @@ package object dsl extends
     def generateCompanion(typeClazz: ClassDef, comp: Tree, containerType: TypeDef) = {
 
       def modifyCompanion(clazz: ClassDef) = {
+        val (annotatedClazz, methodMap) = annotateClazz(c)(clazz)
+
         val dslObjectType = weakTypeOf[DSLObject]
         val dslErrorType = weakTypeOf[freedsl.dsl.Error]
         val dslInterpreterType = weakTypeOf[freedsl.dsl.DSLInterpreter]
@@ -186,11 +191,7 @@ package object dsl extends
 
         val abstractMethods = collect(cstats)
 
-        val caseClassesNames = abstractMethods.map {
-          m =>
-            def caseClassName(func: DefDef) = methodDefId(c)(func)
-            m -> caseClassName(m)
-        }.toMap
+        val caseClassesNames = methodMap
 
         val contextName = TermName(c.freshName("context"))
 
@@ -273,6 +274,7 @@ package object dsl extends
 
              type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
 
+             $annotatedClazz
              type TypeClass[..${clazz.tparams}] = $typeClassName[..${clazz.tparams.map(_.name)}]
 
              sealed trait ${instructionName}[T]
@@ -300,11 +302,10 @@ package object dsl extends
         """
       }
 
-      val modifiedClazz = modifyClazz(c)(typeClazz)
-      val modifiedCompanion = modifyCompanion(modifiedClazz)
+      val modifiedCompanion = modifyCompanion(typeClazz)
 
       val res = c.Expr(q"""
-        $modifiedClazz
+        $typeClazz
         $modifiedCompanion""")
 
       res
@@ -359,17 +360,18 @@ package object dsl extends
       val onionTypeName = TypeName("ONION")
 
       def implicitFunction(o: c.Expr[Any]) = {
-        val typeClass = {
+
+        val annotatedClazz = {
           def symbol = q"${o}".symbol
 
           def members =
             if (symbol.isModule) symbol.asModule.typeSignature.members
             else symbol.typeSignature.members
 
-          members.collect { case sym: TypeSymbol if sym.name == TypeName("TypeClass") => sym }.head
+          members.collect { case t: TypeSymbol  if t.name == TypeName("AnnotatedTypeClass") => t }.head
         }
 
-        val funcs: List[MethodSymbol] = typeClass.typeSignature.decls.collect { case s: MethodSymbol if s.isAbstract && s.isPublic => s }.toList
+        val funcs: List[MethodSymbol] = annotatedClazz.typeSignature.decls.collect { case s: MethodSymbol if s.isAbstract && s.isPublic => s }.toList
 
         def generateFreekoImpl(m: MethodSymbol) = {
           val typeParams = m.typeParams.map(t => internal.typeDef(t))
@@ -394,7 +396,7 @@ package object dsl extends
           }
         }"""
 
-        typeClass.typeParams.size match {
+        annotatedClazz.typeParams.size match {
           case 1 => Some(q"implicit def ${TermName(c.freshName("impl"))} = $implem")
           case 0 => None
         }
@@ -545,6 +547,7 @@ package object dsl extends
       }
 
       new InterpretationContext()""")
+
 
       res
     }

@@ -246,6 +246,7 @@ object DSLTest extends App {
       def setF(f: () => Int)(implicit context: Context) = success(f())
       def set(i: Int)(implicit j: Int, context: Context) = success(i * j)
       def param[A](a: A)(implicit context: Context) = success(a)
+      def defaultValue(i: Int, s: String)(implicit context: Context) = success(())
       def fails(implicit context: Context) = failure(ItFailed("booo"))
       override def terminate(implicit context: Context) = success(())
     }
@@ -260,8 +261,10 @@ object DSLTest extends App {
     def set(i: Double): M[Int]
     def set(i: Int)(implicit j: Int): M[Int]
     def param[A](a: A): M[A]
+    def defaultValue(i: Int, s: String = ""): M[Unit]
     def fails: M[Unit]
     def concreteMethod = 9
+    def test(i: Int = 9) = i
   }
 
   object DSLTest2M {
@@ -297,6 +300,7 @@ object DSLTest extends App {
       i <- dslTest1M.get
       k <- dslTest1M.get
       l <- dslTest2M.get
+      //_ <- dslTest1M.defaultValue(9)
       // _ <- dslTest1M.fails
     } yield (i, k, l)
 
