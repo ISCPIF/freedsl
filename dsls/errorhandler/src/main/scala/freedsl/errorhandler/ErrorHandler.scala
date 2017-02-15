@@ -1,4 +1,4 @@
-package freedsl.errorhandle
+package freedsl.errorhandler
 
 import freedsl.dsl._
 
