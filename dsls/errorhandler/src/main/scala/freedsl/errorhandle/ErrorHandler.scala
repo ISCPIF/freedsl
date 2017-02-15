@@ -21,12 +21,18 @@ object ErrorHandler {
   }
 
   case class RuntimeError(e: Throwable) extends Exception(e.getMessage, e) with freedsl.dsl.Error
+
+  def toEither[T](t: util.Try[T]): Either[Throwable, T] =
+    t match {
+      case util.Success(t) => Right(t)
+      case util.Failure(t) => Left(t)
+    }
 }
 
 @dsl trait ErrorHandler[M[_]] {
   def exception(t: Throwable): M[Unit]
   def exceptionOrResult[A](either: Either[Throwable, A]): M[A]
-  def exceptionOrResult[A](t: util.Try[A]): M[A] = exceptionOrResult(t.toEither)
+  def exceptionOrResult[A](t: util.Try[A]): M[A] = exceptionOrResult(ErrorHandler.toEither(t))
   def errorMessage(e: String): M[Unit]
   def errorMessageOrResult[A](either: Either[String, A]): M[A]
 }
