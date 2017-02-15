@@ -26,6 +26,7 @@ object ErrorHandler {
 @dsl trait ErrorHandler[M[_]] {
   def exception(t: Throwable): M[Unit]
   def exceptionOrResult[A](either: Either[Throwable, A]): M[A]
+  def exceptionOrResult[A](t: util.Try[A]): M[A] = exceptionOrResult(t.toEither)
   def errorMessage(e: String): M[Unit]
   def errorMessageOrResult[A](either: Either[String, A]): M[A]
 }
