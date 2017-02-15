@@ -269,6 +269,8 @@ package object dsl extends
           $mods object $name extends ..$bases with $dslObjectType { comp =>
              import cats._
 
+             def apply[M[_]](implicit m: TypeClass[M]) = m
+
              type ${TypeName(objectIdentifier)} = $dslObjectIdentifierType
 
              type TypeClass[..${clazz.tparams}] = $typeClassName[..${clazz.tparams.map(_.name)}]

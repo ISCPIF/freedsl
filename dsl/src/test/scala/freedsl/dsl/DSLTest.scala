@@ -314,6 +314,7 @@ object DSLTest extends App {
 
 object MultiLevelMerge extends App {
   import cats._
+  import cats.implicits._
 
   object DSLTest1M {
     def interpreter = new Interpreter {
@@ -345,7 +346,10 @@ object MultiLevelMerge extends App {
     def get: M[String]
   }
 
-  def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M], dSLTest3M: DSLTest3M[M]) = dslTest1M.get
+  def prg[M[_]: Monad: DSLTest3M](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M]) = for {
+    _ <- dslTest1M.get
+    _ <- DSLTest3M[M].get
+  } yield ()
 
   def withInterpreters = {
     val merged1 = merge(DSLTest1M.interpreter, DSLTest2M.interpreter)
