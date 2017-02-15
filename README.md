@@ -207,7 +207,10 @@ TODO
 
 ### Known Issues
 
-TODO
+DSLs don't suport default parameter value. It raises an error at runtime, such as:
+```
+java.lang.AbstractMethodError: freedsl.dsl.DSLTest$InterpretationContext$1$MergedDSL$1$$anon$12$$anon$10.defaultValue$default$2()Ljava/lang/String;
+```
 
 ### Future Work
 

@@ -300,7 +300,8 @@ object DSLTest extends App {
       i <- dslTest1M.get
       k <- dslTest1M.get
       l <- dslTest2M.get
-      //_ <- dslTest1M.defaultValue(9)
+      // FIXME for some non obvious reson it doesn't work with default parameters values => Runtime Error
+      // _ <- dslTest1M.defaultValue(9)
       // _ <- dslTest1M.fails
     } yield (i, k, l)
 

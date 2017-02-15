@@ -105,10 +105,10 @@ package object dsl extends
     import c.universe._
 
     val uniqueId =
-        m.annotations.collect { case a if a.tree.tpe <:< weakTypeOf[UniqueId] =>
-          val code = c.parse(a.tree.toString())
-          c.eval(c.Expr[UniqueId](code)).id
-        }.head
+      m.annotations.collect { case a if a.tree.tpe <:< weakTypeOf[UniqueId] =>
+        val code = c.parse(a.tree.toString())
+        c.eval(c.Expr[UniqueId](code)).id
+      }.head
 
     uniqueId
   }
@@ -305,8 +305,8 @@ package object dsl extends
       val modifiedCompanion = modifyCompanion(typeClazz)
 
       val res = c.Expr(q"""
-        $typeClazz
-        $modifiedCompanion""")
+        $modifiedCompanion
+        $typeClazz""")
 
       res
     }
@@ -347,7 +347,6 @@ package object dsl extends
 
   def context_impl(c: MacroContext)(objects: c.Expr[freedsl.dsl.MergeableDSLObject]*): c.Expr[freedsl.dsl.MergedDSLObject] = {
     import c.universe._
-
 
     def mergeDSLObjects(objects: Seq[c.Expr[freedsl.dsl.DSLObject]]): c.Expr[freedsl.dsl.MergedDSLObject] = {
       val dslErrorType = weakTypeOf[freedsl.dsl.Error]
