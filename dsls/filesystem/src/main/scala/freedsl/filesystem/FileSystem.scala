@@ -19,7 +19,7 @@ object FileSystem {
 
   def interpreter = new Interpreter {
     def list(p: FileSystem.Path)(implicit context: Context) =
-      Try(p.path.listFiles.toVector.map(Path.apply)) match {
+      Try(p.path.listFiles.toVector) match {
         case util.Success(r) => success(r)
         case util.Failure(f) => failure(FileError(s"Error listing directory $p", f))
       }
@@ -40,7 +40,7 @@ object FileSystem {
 
 
 @dsl trait FileSystem[M[_]] {
-  def list(path: FileSystem.Path): M[Vector[FileSystem.Path]]
+  def list(path: FileSystem.Path): M[Vector[File]]
   def readStream[T](path: FileSystem.Path)(f: InputStream => T): M[T]
   def read(path: FileSystem.Path): M[String] = readStream(path)(is ⇒ io.Source.fromInputStream(is).mkString)
 }
