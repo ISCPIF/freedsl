@@ -116,8 +116,11 @@ package object dsl extends
 
     val uniqueId =
       m.annotations.collect { case a if a.tree.tpe <:< weakTypeOf[UniqueId] =>
-        val code = c.parse(a.tree.toString())
-        c.eval(c.Expr[UniqueId](code)).id
+        val q"new $t(...$aliasArgs)" = a.tree
+        val q"${Literal(alias)}" = aliasArgs.head.head
+        // val code = c.parse(a.tree.toString())
+        // c.eval(c.Expr[UniqueId](code)).id
+        alias.value.toString
       }.head
 
     uniqueId
