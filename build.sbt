@@ -13,6 +13,7 @@ def settings = Seq (
   organization := "fr.iscpif.freedsl",
   resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven"),
   libraryDependencies += "com.projectseptember" %% "freek" % "0.6.7",
+  libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.2",
   libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
   libraryDependencies += "org.typelevel"  %% "squants"  % "1.0.0",
 //  resolvers += Resolver.bintrayIvyRepo("scalameta", "maven"),

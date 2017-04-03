@@ -590,5 +590,14 @@ package object dsl extends
 
   def merge(objects: freedsl.dsl.MergeableDSLInterpreter*) = macro mergeInterpreters_impl
 
+  /* Work around cats issue #1505 */
+
+  import shapeless.Lazy
+  import cats.data.Coproduct
+  import cats.free.Inject
+
+  implicit def catsFreeRightInjectInstanceLazy[F[_], G[_], H[_]](
+    implicit I: Lazy[Inject[F, G]]
+  ): Inject[F, Coproduct[H, G, ?]] = Inject.catsFreeRightInjectInstance(I.value)
 
 }
