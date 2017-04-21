@@ -150,13 +150,26 @@ package object dsl extends
     import c.universe._
     val q"$cmods trait $ctpname[..$ctparams] extends { ..$cearlydefns } with ..$cparents { $cself => ..$cstats }" = typeClazz
 
+
+
     def modifyMethod(m: DefDef, uniqueName: String) = {
       val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
 
       val id = c.parse(s"""new freedsl.dsl.UniqueId("$uniqueName")""")
       val newMods = m.mods.mapAnnotations(f => id :: f)
 
-      q"""$newMods def $tname[..$tparams](...$paramss): $tpt = $expr"""
+      val newParamss = paramss.map {
+        case ps: Seq[Tree] => ps.map {
+          case p: ValDef =>
+            val mods =
+              if(p.mods.hasFlag(Flag.IMPLICIT)) Modifiers(Flag.IMPLICIT, p.mods.privateWithin, p.mods.annotations)
+              else Modifiers(NoFlags, p.mods.privateWithin, p.mods.annotations)
+
+            ValDef(mods, p.name, p.tpt, q"")
+        }
+      }
+
+      q"""$newMods def $tname[..$tparams](...${newParamss}): $tpt = $expr"""
     }
 
     val (absMethods, otherMethods) = cstats.partition {
@@ -208,7 +221,8 @@ package object dsl extends
 
         val contextName = TermName(c.freshName("context"))
 
-        def caseClassArguments(func: DefDef) = func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}")) ++ Seq(q"$contextName: freedsl.dsl.Context")
+        def caseClassArguments(func: DefDef) =
+          func.vparamss.flatMap(_.map(p => q"${p.name.toTermName}: ${p.tpt}")) ++ Seq(q"$contextName: freedsl.dsl.Context")
 
         def generateCaseClass(func: DefDef) = {
           val params = caseClassArguments(func)
@@ -217,7 +231,10 @@ package object dsl extends
 
         def addImplicitContext(m: c.universe.DefDef) = {
           import c.universe._
-          val q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" = m
+          val q"$mods def $tname[..$tparams](...$originalParamss): $tpt = $expr" = m
+
+          val paramss = originalParamss
+
           def implicitDSL = q"implicit val ${TermName(c.freshName("context"))}: freedsl.dsl.Context"
           def addImplicitParameterList = paramss ++ List(List(implicitDSL))
 

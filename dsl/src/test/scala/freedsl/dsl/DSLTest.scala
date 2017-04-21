@@ -297,6 +297,7 @@ object DSLTest extends App {
 
   def prg[M[_]: Monad](implicit dslTest1M: DSLTest1M[M], dslTest2M: AbstractDSL2[M, String]) =
     for {
+      _ <- dslTest1M.defaultValue(9)
       i <- dslTest1M.get
       k <- dslTest1M.get
       l <- dslTest2M.get
@@ -347,8 +348,8 @@ object MultiLevelMerge extends App {
     def get: M[String]
   }
 
-  def prg[M[_]: Monad: DSLTest3M](implicit dslTest1M: DSLTest1M[M], dslTest2M: DSLTest2M[M]) = for {
-    _ <- dslTest1M.get
+  def prg[M[_]: Monad: DSLTest1M: DSLTest2M: DSLTest3M] = for {
+    _ <- DSLTest1M[M].get
     _ <- DSLTest3M[M].get
   } yield ()
 
