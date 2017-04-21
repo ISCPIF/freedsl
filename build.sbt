@@ -6,9 +6,8 @@ lazy val root =
     aggregate(modules.map(_.project): _*).dependsOn(modules.map(p => p: ClasspathDep[ProjectReference]): _*)
 
 def settings = Seq (
-  scalaVersion := "2.12.1",
-  crossScalaVersions := Seq("2.11.8", "2.12.0"),
-  scalaOrganization := "org.typelevel",
+  scalaVersion := "2.12.2",
+  crossScalaVersions := Seq("2.11.11", "2.12.2"),
   scalacOptions += "-Ypartial-unification",
   organization := "fr.iscpif.freedsl",
   resolvers += Resolver.bintrayRepo("projectseptemberinc", "maven"),
