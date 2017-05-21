@@ -1,11 +1,4 @@
 
-//def modules = Seq(dsl, random, log, system, io, filesystem, tool, errorhandler, stream)
-//
-//lazy val root =
-//  Project(id = "all", base = file(".")).settings(settings: _*).
-//    aggregate(modules.map(_.project): _*).dependsOn(modules.map(p => p: ClasspathDep[ProjectReference]): _*)
-
-
 scalaVersion in ThisBuild := "2.12.2"
 crossScalaVersions in ThisBuild := Seq("2.11.11", "2.12.2")
 scalacOptions in ThisBuild += "-Ypartial-unification"

@@ -3,6 +3,7 @@ package freedsl
 import cats._
 import cats.data.Kleisli
 import cats.implicits._
+import cats.syntax._
 
 package object tool {
 
@@ -63,7 +64,8 @@ package object tool {
     }
   }
 
-
+  def noop[M[_]: Applicative]: M[Unit] = Applicative[M].pure(())
+  
   def modifier[F[_] : Monad, T](get: F[T], set: T => F[Unit]) = new {
     def modify(f: T => T) =
       for {
