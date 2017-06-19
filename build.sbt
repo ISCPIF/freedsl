@@ -7,7 +7,7 @@ resolvers in ThisBuild += Resolver.bintrayRepo("projectseptemberinc", "maven")
 libraryDependencies in ThisBuild += "com.projectseptember" %% "freek" % "0.6.7"
 libraryDependencies in ThisBuild += "com.chuusai" %% "shapeless" % "2.3.2"
 libraryDependencies in ThisBuild += "org.scala-lang" % "scala-reflect" % scalaVersion.value
-libraryDependencies in ThisBuild += "org.typelevel"  %% "squants"  % "1.0.0"
+libraryDependencies in ThisBuild += "org.typelevel"  %% "squants"  % "1.3.0"
 //  resolvers += Resolver.bintrayIvyRepo("scalameta", "maven"),
 //  addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-beta4" cross CrossVersion.full),
 
@@ -34,8 +34,8 @@ pomExtra in ThisBuild := (
 
 
 def settings = Seq(
-  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3")
+  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4")
 )
 
 lazy val freedsl = Project(id = "dsl", base = file("dsl")) settings(settings: _*)
