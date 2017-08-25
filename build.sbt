@@ -1,6 +1,8 @@
 
-scalaVersion in ThisBuild := "2.12.2"
-crossScalaVersions in ThisBuild := Seq("2.11.11", "2.12.2")
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+
+scalaVersion in ThisBuild := "2.12.3"
+crossScalaVersions in ThisBuild := Seq("2.11.11", "2.12.3")
 scalacOptions in ThisBuild += "-Ypartial-unification"
 organization in ThisBuild := "fr.iscpif.freedsl"
 resolvers in ThisBuild += Resolver.bintrayRepo("projectseptemberinc", "maven")
@@ -32,6 +34,26 @@ pomExtra in ThisBuild := (
   </developers>
 )
 
+
+releaseVersionBump := sbtrelease.Version.Bump.Minor
+
+releaseTagComment    := s"Releasing ${(version in ThisBuild).value}"
+
+releaseCommitMessage := s"Bump version to ${(version in ThisBuild).value}"
+
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  inquireVersions,
+  runClean,
+  runTest,
+  setReleaseVersion,
+  tagRelease,
+  ReleaseStep(action = Command.process("publishSigned", _)),
+  setNextVersion,
+  commitNextVersion,
+  ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
+  pushChanges
+)
 
 def settings = Seq(
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
