@@ -48,26 +48,28 @@ releaseProcess := Seq[ReleaseStep](
   runTest,
   setReleaseVersion,
   tagRelease,
-  ReleaseStep(action = Command.process("publishSigned", _)),
+  releaseStepCommand("publishSigned"),
   setNextVersion,
   commitNextVersion,
-  ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
+  releaseStepCommand("sonatypeReleaseAll"),
   pushChanges
 )
 
-def settings = Seq(
+
+
+def settings = scalariformSettings(autoformat = true) ++ Seq(
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4")
+  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
+  addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full),
+  libraryDependencies += "io.frees" %% "freestyle-tagless" % "0.3.1"
 )
 
-lazy val freedsl = Project(id = "dsl", base = file("dsl")) settings(settings: _*)
-
-lazy val random = Project(id = "random", base = file("dsls/random")) settings(settings: _*) dependsOn(freedsl)
-lazy val log = Project(id = "log", base = file("dsls/log")) settings(settings: _*) dependsOn(freedsl)
-lazy val system = Project(id = "system", base = file("dsls/system")) settings(settings: _*) dependsOn(freedsl)
-lazy val io = Project(id = "io", base = file("dsls/io")) settings(settings: _*) dependsOn(freedsl)
-lazy val filesystem = Project(id = "filesystem", base = file("dsls/filesystem")) settings(settings: _*) dependsOn(freedsl)
-lazy val errorhandler = Project(id = "errorhandler", base = file("dsls/errorhandler")) settings(settings: _*) dependsOn(freedsl)
+lazy val random = Project(id = "random", base = file("random")) settings(settings: _*)
+lazy val log = Project(id = "log", base = file("log")) settings(settings: _*)
+lazy val system = Project(id = "system", base = file("system")) settings(settings: _*)
+lazy val io = Project(id = "io", base = file("io")) settings(settings: _*)
+lazy val filesystem = Project(id = "filesystem", base = file("filesystem")) settings(settings: _*)
+lazy val errorhandler = Project(id = "errorhandler", base = file("errorhandler")) settings(settings: _*) 
 lazy val tool = Project(id = "tool", base = file("tool")) settings(settings: _*)
 
 lazy val example = Project(id = "example", base = file("example")) settings(settings: _*) dependsOn(random, system, log)

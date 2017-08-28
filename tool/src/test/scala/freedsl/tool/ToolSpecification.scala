@@ -1,7 +1,7 @@
 package freedsl.tool
 
 import org.scalacheck.Properties
-import org.scalacheck.Prop.{forAll, BooleanOperators}
+import org.scalacheck.Prop.{ forAll, BooleanOperators }
 import cats._
 
 object ToolSpecification extends Properties("Tool") {

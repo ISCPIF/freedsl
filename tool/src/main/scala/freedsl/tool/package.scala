@@ -21,7 +21,7 @@ package object tool {
             b <- end.run(a)
           } yield (b, a)
 
-        comp.map { case (e, a) => (if(e) stop(a) else continue) }
+        comp.map { case (e, a) => (if (e) stop(a) else continue) }
       }
 
       loop
@@ -33,9 +33,10 @@ package object tool {
       def stop(a: List[A]): Either[Rec, List[A]] = Right(a)
       def continue(a: List[A], size: Int): Either[Rec, List[A]] = Left((a, size))
 
-      def loop = Monad[M].tailRecM[Rec, List[A]]((List.empty, 0)) { case (list, s) =>
-        if(s < size) m.map(a => continue(a :: list, s + 1))
-        else stop(list).pure[M]
+      def loop = Monad[M].tailRecM[Rec, List[A]]((List.empty, 0)) {
+        case (list, s) =>
+          if (s < size) m.map(a => continue(a :: list, s + 1))
+          else stop(list).pure[M]
       }
 
       loop.map { _.reverse.toVector }
@@ -65,8 +66,8 @@ package object tool {
   }
 
   def noop[M[_]: Applicative]: M[Unit] = Applicative[M].pure(())
-  
-  def modifier[F[_] : Monad, T](get: F[T], set: T => F[Unit]) = new {
+
+  def modifier[F[_]: Monad, T](get: F[T], set: T => F[Unit]) = new {
     def modify(f: T => T) =
       for {
         v <- get

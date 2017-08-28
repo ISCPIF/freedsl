@@ -3,6 +3,7 @@ package freedsl.example
 object DSLExample extends App {
   import cats._
   import cats.implicits._
+  import freestyle._
   import freedsl.random._
   import freedsl.system._
   import freedsl.log._
@@ -19,22 +20,16 @@ object DSLExample extends App {
     _ <- utilM.sleep(s seconds)
   } yield ()
 
-  // Construct an appropriate M along with implicit instances of Random[M], Util[M] and Log[M]
-  // they are build using the free monad and the freek library
-  val intp = freedsl.dsl.merge(Random.interpreter(42), System.interpreter, Log.interpreter)
-  import intp.implicits._
-
-  val prg =
+  def prg[M[_]: Monad](implicit randomM: Random[M], utilM: System[M], logM: Log[M]) =
     for {
-      b ← randomData[intp.M]
-      _ ← randomSleep[intp.M]
+      b ← randomData[M]
+      _ ← randomSleep[M]
     } yield b
 
+  implicit val randomInterpreter = RandomInterpreter(42)
+  implicit val systemInterpreter = SystemInterpreter()
+  implicit val logInterpreter = LogInterpreter()
 
-  // All the side effects take place here in the interpreter
-  intp.run(prg) match {
-    case Right(v) => println(s"This is a success: $v")
-    case Left(e) => println(s"OhOh, error: $e")
-  }
+  println(prg[util.Try])
 
 }
