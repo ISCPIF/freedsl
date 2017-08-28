@@ -49,8 +49,8 @@ releaseProcess := Seq[ReleaseStep](
 )
 
 def settings = scalariformSettings(autoformat = true) ++ Seq(
-  publishArtifact in (Compile, packageDoc) := false,
-  publishArtifact in packageDoc := false,
+  // macro paradise doesn't work with scaladoc
+  sources in (Compile, doc) := Nil,
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full),
