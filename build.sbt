@@ -5,13 +5,6 @@ scalaVersion in ThisBuild := "2.12.3"
 crossScalaVersions in ThisBuild := Seq("2.11.11", "2.12.3")
 scalacOptions in ThisBuild += "-Ypartial-unification"
 organization in ThisBuild := "fr.iscpif.freedsl"
-resolvers in ThisBuild += Resolver.bintrayRepo("projectseptemberinc", "maven")
-libraryDependencies in ThisBuild += "com.projectseptember" %% "freek" % "0.6.7"
-libraryDependencies in ThisBuild += "com.chuusai" %% "shapeless" % "2.3.2"
-libraryDependencies in ThisBuild += "org.scala-lang" % "scala-reflect" % scalaVersion.value
-libraryDependencies in ThisBuild += "org.typelevel"  %% "squants"  % "1.3.0"
-//  resolvers += Resolver.bintrayIvyRepo("scalameta", "maven"),
-//  addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-beta4" cross CrossVersion.full),
 
 libraryDependencies in ThisBuild += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
 publishTo in ThisBuild := {
@@ -55,8 +48,6 @@ releaseProcess := Seq[ReleaseStep](
   pushChanges
 )
 
-
-
 def settings = scalariformSettings(autoformat = true) ++ Seq(
   publishArtifact in (Compile, packageDoc) := false,
   publishArtifact in packageDoc := false,
@@ -66,9 +57,13 @@ def settings = scalariformSettings(autoformat = true) ++ Seq(
   libraryDependencies += "io.frees" %% "freestyle-tagless" % "0.3.1"
 )
 
+lazy val freedsl = Project(id = "dsl", base = file("dsl")) settings(settings)
 lazy val random = Project(id = "random", base = file("random")) settings(settings: _*)
 lazy val log = Project(id = "log", base = file("log")) settings(settings: _*)
-lazy val system = Project(id = "system", base = file("system")) settings(settings: _*)
+lazy val system = Project(id = "system", base = file("system")) settings(settings: _*) settings (
+  libraryDependencies += "org.typelevel"  %% "squants"  % "1.3.0"
+)
+
 lazy val io = Project(id = "io", base = file("io")) settings(settings: _*)
 lazy val filesystem = Project(id = "filesystem", base = file("filesystem")) settings(settings: _*)
 lazy val errorhandler = Project(id = "errorhandler", base = file("errorhandler")) settings(settings: _*) 
