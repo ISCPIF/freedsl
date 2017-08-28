@@ -78,4 +78,12 @@ package object tool {
     def apply(f: T => T) = modify(f)
   }
 
+  implicit class TryDecorator[T](t: util.Try[T]) {
+    def mapFailure(f: Throwable ⇒ Throwable) =
+      t match {
+        case util.Success(s)  ⇒ util.Success(s)
+        case util.Failure(fa) ⇒ util.Failure(f(fa))
+      }
+  }
+
 }
