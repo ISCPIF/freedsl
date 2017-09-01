@@ -1,6 +1,7 @@
 package freedsl
 
 import cats._
+import cats.free._
 import cats.data.Kleisli
 import cats.implicits._
 import cats.syntax._
@@ -81,7 +82,7 @@ package object tool {
   implicit class TryDecorator[T](t: util.Try[T]) {
     def mapFailure(f: Throwable ⇒ Throwable) =
       t match {
-        case util.Success(s)  ⇒ util.Success(s)
+        case util.Success(s) ⇒ util.Success(s)
         case util.Failure(fa) ⇒ util.Failure(f(fa))
       }
   }
