@@ -53,7 +53,8 @@ def settings = scalariformSettings(autoformat = true) ++ Seq(
   sources in (Compile, doc) := Nil,
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full),
-  libraryDependencies += "io.frees" %% "freestyle-tagless" % "0.3.1"
+  libraryDependencies += "io.frees" %% "freestyle-tagless" % "0.3.1",
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 )
 
 lazy val freedsl = Project(id = "dsl", base = file("dsl")) settings(settings)

@@ -1,13 +1,14 @@
 package freedsl.tool
 
-import org.scalacheck.Properties
-import org.scalacheck.Prop.{ forAll, BooleanOperators }
-import cats._
+import org.scalatest._
 
-object ToolSpecification extends Properties("Tool") {
+class ToolSpecification extends FlatSpec with Matchers {
 
-  property("repeat") = forAll { (size: Int) =>
-    (size >= 0 && size < 1000) ==> ((1: Id[Int]).repeat(size).size == size)
+  "until" should "call the monad until the test gets false" in {
+    import cats.data._
+    type OneArg[A] = State[Int, A]
+    val increment: OneArg[Int] = State[Int, Int](i => (i + 1, i + 1))
+    increment.until((x: Int) => x >= 10).run(0).value should equal((10, 10))
   }
 
 }

@@ -10,6 +10,7 @@ package object tool {
 
   implicit class MonadDecorator[M[_]: Monad, A](m: M[A]) {
     def until(end: M[Boolean]): M[A] = until(Kleisli[M, A, Boolean](_ => end))
+    def until(end: A => Boolean): M[A] = until(Kleisli[M, A, Boolean](a => end(a).pure[M]))
 
     def until(end: Kleisli[M, A, Boolean]): M[A] = {
       def stop(a: A): Either[Unit, A] = Right(a)
