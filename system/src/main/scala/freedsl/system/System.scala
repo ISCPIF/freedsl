@@ -9,7 +9,7 @@ import squants._
   def sleep(duration: Time): FS[Unit]
 }
 
-case class SystemInterpreter() extends System.Handler[util.Try] {
-  def randomUUID() = util.Try(UUID.randomUUID())
-  def sleep(d: Time) = util.Try(Thread.sleep(d.millis))
+case class SystemInterpreter() extends System.Handler[freedsl.dsl.Evaluated] {
+  def randomUUID() = freedsl.dsl.guard(UUID.randomUUID())
+  def sleep(d: Time) = freedsl.dsl.guard(Thread.sleep(d.millis))
 }

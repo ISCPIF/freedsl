@@ -10,11 +10,11 @@ import java.io._
   def read(path: Path): FS[String] = readStream(path)(is ⇒ io.Source.fromInputStream(is).mkString)
 }
 
-case class FileSystemInterpreter() extends FileSystem.Handler[util.Try] {
-  def list(p: Path) = util.Try(p.path.listFiles.toVector)
+case class FileSystemInterpreter() extends FileSystem.Handler[freedsl.dsl.Evaluated] {
+  def list(p: Path) = freedsl.dsl.guard(p.path.listFiles.toVector)
 
   def _readStream[T](path: Path, f: InputStream => T) =
-    util.Try {
+    freedsl.dsl.guard {
       val is = new BufferedInputStream(new FileInputStream(path.path))
       try f(is)
       finally is.close

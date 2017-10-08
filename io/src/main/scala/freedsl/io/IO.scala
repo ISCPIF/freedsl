@@ -6,6 +6,6 @@ import freestyle.tagless._
   def apply[A](f: () => A): FS[A]
 }
 
-case class IOInterpreter() extends IO.Handler[util.Try] {
-  def apply[A](f: () => A) = util.Try(f())
+case class IOInterpreter() extends IO.Handler[freedsl.dsl.Evaluated] {
+  def apply[A](f: () => A) = freedsl.dsl.guard(f())
 }

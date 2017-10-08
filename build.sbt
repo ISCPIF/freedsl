@@ -58,15 +58,16 @@ def settings = scalariformSettings(autoformat = true) ++ Seq(
 )
 
 lazy val freedsl = Project(id = "dsl", base = file("dsl")) settings(settings)
-lazy val random = Project(id = "random", base = file("random")) settings(settings: _*)
-lazy val log = Project(id = "log", base = file("log")) settings(settings: _*)
+
+lazy val random = Project(id = "random", base = file("random")) settings(settings: _*) dependsOn(freedsl)
+lazy val log = Project(id = "log", base = file("log")) settings(settings: _*) dependsOn(freedsl)
 lazy val system = Project(id = "system", base = file("system")) settings(settings: _*) settings (
   libraryDependencies += "org.typelevel"  %% "squants"  % "1.3.0"
-)
+) dependsOn(freedsl)
 
-lazy val io = Project(id = "io", base = file("io")) settings(settings: _*)
-lazy val filesystem = Project(id = "filesystem", base = file("filesystem")) settings(settings: _*)
-lazy val errorhandler = Project(id = "errorhandler", base = file("errorhandler")) settings(settings: _*) 
+lazy val io = Project(id = "io", base = file("io")) settings(settings: _*) dependsOn(freedsl)
+lazy val filesystem = Project(id = "filesystem", base = file("filesystem")) settings(settings: _*)dependsOn(freedsl)
+lazy val errorhandler = Project(id = "errorhandler", base = file("errorhandler")) settings(settings: _*)  dependsOn(freedsl)
 lazy val tool = Project(id = "tool", base = file("tool")) settings(settings: _*)
 
 lazy val example = Project(id = "example", base = file("example")) settings(settings: _*) dependsOn(random, system, log)

@@ -34,10 +34,10 @@ object RandomInterpreter {
   def apply(random: util.Random): RandomInterpreter = new RandomInterpreter(random)
 }
 
-class RandomInterpreter(val random: util.Random) extends Random.Handler[Try] {
-  def nextDouble() = Try(random.nextDouble())
-  def nextInt(n: Int) = Try(random.nextInt(n))
-  def nextBoolean() = Try(random.nextBoolean())
-  def shuffle[A](s: Vector[A]) = Try(random.shuffle(s))
-  def use[T](f: util.Random => T) = Try(f(random))
+class RandomInterpreter(val random: util.Random) extends Random.Handler[freedsl.dsl.Evaluated] {
+  def nextDouble() = freedsl.dsl.guard(random.nextDouble())
+  def nextInt(n: Int) = freedsl.dsl.guard(random.nextInt(n))
+  def nextBoolean() = freedsl.dsl.guard(random.nextBoolean())
+  def shuffle[A](s: Vector[A]) = freedsl.dsl.guard(random.shuffle(s))
+  def use[T](f: util.Random => T) = freedsl.dsl.guard(f(random))
 }

@@ -30,6 +30,6 @@ object DSLExample extends App {
   implicit val systemInterpreter = SystemInterpreter()
   implicit val logInterpreter = LogInterpreter()
 
-  println(prg[util.Try])
+  println(prg[freedsl.dsl.Evaluated])
 
 }

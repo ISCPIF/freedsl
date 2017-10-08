@@ -23,6 +23,6 @@ import freestyle.tagless._
   def print(s: String): FS[Unit]
 }
 
-case class LogInterpreter() extends Log.Handler[util.Try] {
-  def print(s: String) = util.Try(println(s))
+case class LogInterpreter() extends Log.Handler[freedsl.dsl.Evaluated] {
+  def print(s: String) = freedsl.dsl.guard(println(s))
 }
