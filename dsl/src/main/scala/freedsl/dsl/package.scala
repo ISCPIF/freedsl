@@ -18,8 +18,8 @@ package object dsl {
   type DSL[T] = cats.free.Free[Evaluated, T]
 
   implicit class DSLDecorator[T](f: DSL[T]) {
-    def eval = tryEval.left.get
-    def tryEval = f.runTailRec
+    def eval = tryEval.get
+    def tryEval = f.runTailRec.toTry
   }
 
   implicit def freestyleTaglessLiftFree[F[_]] = freestyle.tagless.freestyleTaglessLiftFree[F]
