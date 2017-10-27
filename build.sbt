@@ -48,16 +48,18 @@ releaseProcess := Seq[ReleaseStep](
   pushChanges
 )
 
-def settings = scalariformSettings(autoformat = true) ++ Seq(
+def settings = scalariformSettings(autoformat = true) ++ Seq (
   // macro paradise doesn't work with scaladoc
   sources in (Compile, doc) := Nil,
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full),
-  libraryDependencies += "io.frees" %% "freestyle-tagless" % "0.3.1",
+  scalacOptions += "-Xplugin-require:macroparadise",
+ // addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
+  libraryDependencies += "io.frees" %% "frees-tagless" % "0.4.1",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 )
 
-lazy val freedsl = Project(id = "dsl", base = file("dsl")) settings(settings)
+lazy val freedsl = Project(id = "dsl", base = file("dsl")) settings(settings: _*)
 
 lazy val random = Project(id = "random", base = file("random")) settings(settings: _*) dependsOn(freedsl)
 lazy val log = Project(id = "log", base = file("log")) settings(settings: _*) dependsOn(freedsl)
@@ -68,8 +70,7 @@ lazy val system = Project(id = "system", base = file("system")) settings(setting
 lazy val io = Project(id = "io", base = file("io")) settings(settings: _*) dependsOn(freedsl)
 lazy val filesystem = Project(id = "filesystem", base = file("filesystem")) settings(settings: _*)dependsOn(freedsl)
 lazy val errorhandler = Project(id = "errorhandler", base = file("errorhandler")) settings(settings: _*)  dependsOn(freedsl)
-lazy val tool = Project(id = "tool", base = file("tool")) settings(settings: _*)
-
+lazy val tool = Project(id = "tool", base = file("tool")) settings(settings: _*) dependsOn(random % "test")
 lazy val example = Project(id = "example", base = file("example")) settings(settings: _*) dependsOn(random, system, log)
 
 

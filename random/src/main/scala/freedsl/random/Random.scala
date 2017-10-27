@@ -27,8 +27,6 @@ import freestyle.tagless._
   def use[T](f: util.Random => T): FS[T]
 }
 
-import util.Try
-
 object RandomInterpreter {
   def apply(seed: Long): RandomInterpreter = new RandomInterpreter(new util.Random(seed))
   def apply(random: util.Random): RandomInterpreter = new RandomInterpreter(random)
