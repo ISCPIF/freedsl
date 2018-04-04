@@ -54,7 +54,7 @@ def settings = scalariformSettings(autoformat = true) ++ Seq (
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full),
   scalacOptions += "-Xplugin-require:macroparadise",
-  libraryDependencies += "io.frees" %% "frees-core" % "0.5.1",
+  libraryDependencies += "io.frees" %% "frees-core" % "0.8.0",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 )
 
