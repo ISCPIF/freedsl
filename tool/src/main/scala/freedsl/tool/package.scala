@@ -93,6 +93,31 @@ package object tool {
 
   }
 
+  implicit class MonadVectorDecorator[M[_]: Monad, A](m: M[Vector[A]]) {
+
+    def accumulate(size: Int): M[Vector[A]] = {
+      def stop(a: Vector[A]): Either[Vector[A], Vector[A]] = Right(a)
+
+      def continue(v: Vector[A]): Either[Vector[A], Vector[A]] = Left(v)
+
+      def loop(init: Vector[A]) = Monad[M].tailRecM[Vector[A], Vector[A]](init) {
+        case v =>
+          val comp =
+            for {
+              a <- m
+              acc = v ++ a
+            } yield (acc.size >= size, acc)
+
+          comp.map { case (e, a) => (if (e) stop(a) else continue(a)) }
+      }
+
+      for {
+        init <- m
+        res <- if (init.size >= size) init.pure[M] else loop(init)
+      } yield res
+    }
+  }
+
   implicit class KleisliDecorator[M[_]: Monad, A](m: Kleisli[M, A, A]) {
     def until(end: Kleisli[M, A, Boolean]) = Kleisli { a: A => fold(a)(end) }
 
