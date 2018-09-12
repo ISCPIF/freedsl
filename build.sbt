@@ -11,6 +11,7 @@ publishTo in ThisBuild := {
   if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
   else Some("releases"  at nexus + "service/local/staging/deploy/maven2")
 }
+
 publishMavenStyle in ThisBuild := true
 publishArtifact in Test in ThisBuild := false
 pomIncludeRepository in ThisBuild := { _ => false }
@@ -55,7 +56,7 @@ def settings = scalariformSettings(autoformat = true) ++ Seq (
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M11" cross CrossVersion.full),
   scalacOptions += "-Xplugin-require:macroparadise",
-  libraryDependencies += "io.frees" %% "frees-core" % "0.8.0",
+  libraryDependencies += "io.frees" %% "frees-core" % "0.8.2",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 )
 
@@ -72,6 +73,7 @@ lazy val filesystem = Project(id = "filesystem", base = file("filesystem")) sett
 lazy val errorhandler = Project(id = "errorhandler", base = file("errorhandler")) settings(settings: _*)  dependsOn(freedsl)
 lazy val tool = Project(id = "tool", base = file("tool")) settings(settings: _*) dependsOn(random % "test")
 lazy val example = Project(id = "example", base = file("example")) settings(settings: _*) dependsOn(random, system, log)
+
 
 
 
