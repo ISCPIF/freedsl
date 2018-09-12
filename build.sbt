@@ -1,8 +1,7 @@
 
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 
-scalaVersion in ThisBuild := "2.12.4"
-crossScalaVersions in ThisBuild := Seq("2.11.11", "2.12.4")
+scalaVersion in ThisBuild := "2.12.6"
 scalacOptions in ThisBuild += "-Ypartial-unification"
 organization in ThisBuild := "fr.iscpif.freedsl"
 
@@ -54,7 +53,7 @@ def settings = scalariformSettings(autoformat = true) ++ Seq (
   // macro paradise doesn't work with scaladoc
   sources in (Compile, doc) := Nil,
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
-  addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M10" cross CrossVersion.full),
+  addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M11" cross CrossVersion.full),
   scalacOptions += "-Xplugin-require:macroparadise",
   libraryDependencies += "io.frees" %% "frees-core" % "0.8.0",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
